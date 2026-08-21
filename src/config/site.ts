@@ -9,7 +9,7 @@ export const SITE = {
   whatsappDisplay: '+968 9121 1599',
   /** Public contact address — shown in the footer + privacy notice, and used
    *  as the reply-to on application emails. */
-  email: 'qaisermahruqi5@gmail.com',
+  email: 'GAO@genoaacademyom.com',
   instagramUrl: 'https://www.instagram.com/genoaacademyoman/',
   instagramHandle: '@genoaacademyoman',
   /**
