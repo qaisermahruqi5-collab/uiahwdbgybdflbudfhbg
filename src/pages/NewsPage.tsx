@@ -104,10 +104,34 @@ export default function NewsPage() {
             <div className="reveal-group flex flex-col gap-6">
               {content.news.map(item => (
                 <article key={item.id} className="reveal">
-                  <div className="card-panel corner-ticks relative flex flex-col gap-3 p-7 md:p-9">
+                  <div className="card-panel corner-ticks relative flex flex-col gap-5 p-7 md:p-9 md:flex-row md:items-start">
                     {/* 3px gold leading edge bar */}
                     <span aria-hidden="true" className="absolute inset-y-0 start-0 w-[3px] bg-[#C9A84C]" />
 
+                    {/* Optional photo — sharp frame, one clipped corner.
+                        Posts without an image keep the original full-width text. */}
+                    {item.image && (
+                      <div
+                        className="shrink-0 overflow-hidden rounded-[2px] border border-[rgba(201,168,76,0.28)] md:w-[260px] lg:w-[320px]"
+                        style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)' }}
+                      >
+                        <picture>
+                          <source srcSet={item.image.webp} type="image/webp" />
+                          <img
+                            src={item.image.jpg}
+                            alt={(lang === 'ar' && item.image.altAr) || item.image.alt}
+                            width={item.image.width}
+                            height={item.image.height}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-auto object-cover"
+                            style={{ aspectRatio: `${item.image.width} / ${item.image.height}` }}
+                          />
+                        </picture>
+                      </div>
+                    )}
+
+                    <div className="flex min-w-0 flex-col gap-3">
                     <div className="flex flex-wrap items-center gap-3">
                       <span className="rounded-[2px] bg-[#C9A84C] px-3 py-1 font-inter text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#060F25]">
                         {item.category}
@@ -129,6 +153,7 @@ export default function NewsPage() {
                     <p className="font-inter text-[0.9375rem] leading-[1.8] text-[#8A94A6] max-w-[760px]">
                       {item.excerpt}
                     </p>
+                    </div>
                   </div>
                 </article>
               ))}
