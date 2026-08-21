@@ -1,0 +1,51 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# ═══════════════════════════════════════════════════════════════════
+# SECURITY HEADERS
+#
+# Applied to every response. If you host somewhere other than Netlify,
+# reproduce the same header set there (see README → "Security headers").
+#
+# The Content-Security-Policy is written against exactly what this site
+# loads. If you add a third-party script, font, embed or API, you must
+# widen the matching directive or the browser will silently block it —
+# check the browser console after any such change.
+#
+#   script-src   'self' + one sha256 hash. The hash covers the inline
+#                JSON-LD structured-data block in index.html. EDITING
+#                THAT BLOCK CHANGES ITS HASH: regenerate with
+#                  npm run csp-hash
+#                and paste the new value below, or search engines stop
+#                seeing your structured data.
+#   style-src    needs 'unsafe-inline' because the UI sets colours and
+#                spacing through React inline styles.
+#   img-src      data: is required by the grain overlay (inline SVG).
+#   connect-src  api.web3forms.com is where the registration form posts.
+# ═══════════════════════════════════════════════════════════════════
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-GOn7RAISmFEdGjGzeQxc9F3JeQXQBShsSfoUN0GaKS0='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; font-src 'self'; connect-src 'self' https://api.web3forms.com; manifest-src 'self'; worker-src 'none'; upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Resource-Policy = "same-origin"
+    X-DNS-Prefetch-Control = "off"
+
+# Hashed build assets are immutable — cache them hard.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# The HTML shell must never be cached, or visitors get a stale app.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

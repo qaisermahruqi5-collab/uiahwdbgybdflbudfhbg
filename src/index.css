@@ -1,0 +1,450 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --genoa-red: #7A0A12;
+    --genoa-red-dark: #5A0810;
+    --genoa-red-accent: #9B1B24;
+    --genoa-navy: #0B1B3D;
+    --genoa-navy-dark: #060F25;
+    --genoa-navy-mid: #142850;
+    --genoa-gold: #C9A84C;
+    --genoa-gold-light: #E0C878;
+    --genoa-gold-dark: #A68B3A;
+    --genoa-white: #F5F1EB;
+    --genoa-pure-white: #FFFFFF;
+    --text-dark: #0B1B3D;
+    --text-muted: #8A94A6;
+    --success-green: #25D366;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #7A0A12 0%, #5A0810 35%, #0B1B3D 65%, #060F25 100%);
+    background-attachment: fixed;
+    background-size: cover;
+    color: #F5F1EB;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(201, 168, 76, 0.3) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(201, 168, 76, 0.3);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(201, 168, 76, 0.5);
+  }
+}
+
+/* ── RTL / Arabic support ─────────────────────────────────────────
+   dir is flipped on <html> by LanguageProvider. Flex & grid layouts
+   mirror automatically; Bebas Neue has no Arabic glyphs, so Arabic
+   display headings fall back to Cairo without letter-spacing. */
+html[dir='rtl'] body {
+  font-family: 'Cairo', 'Inter', sans-serif;
+}
+
+html[dir='rtl'] .font-bebas {
+  font-family: 'Cairo', sans-serif;
+  /* !important beats the inline letterSpacing on headings — required,
+     Arabic glyphs must never be letter-spaced (breaks joining) */
+  letter-spacing: 0 !important;
+}
+
+/* Inter has no Arabic glyphs either — route all body text to Cairo */
+html[dir='rtl'] .font-inter {
+  font-family: 'Cairo', 'Inter', sans-serif;
+}
+
+/* Arabic glyphs must never be letter-spaced (it breaks joining), but the
+   design uses tracking-* classes everywhere — disable them all in RTL */
+html[dir='rtl'] *,
+html[dir='rtl'] *::before,
+html[dir='rtl'] *::after {
+  letter-spacing: 0 !important;
+}
+
+/* Global focus visibility */
+:focus-visible {
+  outline: 2px solid #C9A84C;
+  outline-offset: 2px;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Stadium Editorial (Wave A): ticker must be fully static, not just
+     slowed — the track rests at x=0 with the first copy fully visible */
+  .marquee-track {
+    animation: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   WAVE A — "Stadium Editorial" design system  (design.md · Wave A)
+   Everything below lives in @layer components so page agents can still
+   override per-instance with Tailwind utilities (px-*, py-*, w-*, …),
+   which sit in the later utilities layer. Palette is locked — no new hues.
+   ══════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* ── Buttons: rectangular, 2px radius, sliding-fill hover ───────────
+     Mechanics: the hover fill is a ::before panel scaled in on the X
+     axis (origin-left; origin-right under html[dir=rtl]). The button
+     creates its own stacking context (isolation:isolate) and the
+     ::before sits at z-index:-1 — ABOVE the button's own background
+     but BELOW the label — so the label NEVER needs a wrapper span,
+     even when the class lands on an existing <Link>/<a>/<button> whose
+     text is a bare t() text node. :focus-visible uses the existing
+     global rule (2px gold outline, offset 2px) and also triggers the
+     fill, for keyboard parity with :hover.                          */
+  .btn-primary,
+  .btn-outline {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem 2rem;
+    border-radius: 2px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .btn-primary::before,
+  .btn-outline::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .btn-primary {
+    background-color: #C9A84C;
+    border: 1px solid #C9A84C;
+    color: #060F25;
+  }
+
+  .btn-primary::before {
+    background-color: #060F25; /* navy panel slides in over the gold */
+  }
+
+  .btn-primary:hover,
+  .btn-primary:focus-visible {
+    color: #E0C878; /* gold-light label over the navy fill */
+    border-color: #060F25;
+  }
+
+  .btn-outline {
+    background-color: transparent;
+    border: 1px solid #C9A84C;
+    color: #C9A84C;
+  }
+
+  .btn-outline::before {
+    background-color: #C9A84C; /* gold fill slides in */
+  }
+
+  .btn-outline:hover,
+  .btn-outline:focus-visible {
+    color: #060F25;
+  }
+
+  .btn-primary:hover::before,
+  .btn-primary:focus-visible::before,
+  .btn-outline:hover::before,
+  .btn-outline:focus-visible::before {
+    transform: scaleX(1);
+  }
+
+  /* RTL: Inter has no Arabic glyphs — route button labels to Cairo
+     (same pattern as the existing html[dir=rtl] .font-inter rule), and
+     sweep the fill in from the right to match reading direction.
+     Transforms are physical, so this override is required. */
+  html[dir='rtl'] .btn-primary,
+  html[dir='rtl'] .btn-outline {
+    font-family: 'Cairo', 'Inter', sans-serif;
+  }
+
+  html[dir='rtl'] .btn-primary::before,
+  html[dir='rtl'] .btn-outline::before {
+    transform-origin: right;
+  }
+
+  /* ── Card panel: flat navy, sharp 2px radius, 1px gold border ───────
+     Hover brightens the border and lifts the panel 4px. Flat — no glow
+     shadows. NOTE for page agents: if the panel is ALSO a .reveal/GSAP
+     target, GSAP's inline `transform` overrides this hover lift AND
+     this CSS transition fights GSAP's rAF updates — animate a wrapper
+     element, or use clearProps:'transform' when the tween completes. */
+  .card-panel {
+    position: relative;
+    background-color: rgba(11, 27, 61, 0.55);
+    border: 1px solid rgba(201, 168, 76, 0.22);
+    border-radius: 2px;
+    transition: border-color 0.3s ease, transform 0.3s ease;
+  }
+
+  .card-panel:hover {
+    border-color: rgba(201, 168, 76, 0.5);
+    transform: translateY(-4px);
+  }
+
+  /* ── Corner ticks: gold L-brackets on all FOUR corners ──────────────
+     DESIGN DECISION (documented per design.md Wave A #1): a single
+     element only has two pseudo-elements, so the classic
+     ::before/::after technique yields at most 2 corners AND consumes
+     both pseudos (which Wave B needs for gold edge bars, diagonal
+     frames, accordion icons, …). Instead the four L-brackets are
+     painted as eight layered background gradients — ONE class gives
+     FOUR corners with zero extra markup and leaves ::before/::after
+     free. Combine as `<div className="card-panel corner-ticks">`.
+     • Hovering the ticked element brightens the ticks ("glow") —
+       pairs automatically with .card-panel:hover.
+     • Tune per instance via CSS vars (set them in a style attr or a
+       wrapper rule): --ct-color, --ct-length, --ct-thickness,
+       --ct-offset.
+     • CAVEAT: the ticks ARE the element's background-image. Do not put
+       another background-image on the same element (cascade order
+       decides, ticks lose). If the panel needs a photo/gradient bg,
+       move the ticks to an absolutely-positioned child overlay div.
+       .pinstripe is ::before-based, so .pinstripe + .corner-ticks
+       combine safely.                                               */
+  .corner-ticks {
+    --ct-color: rgba(201, 168, 76, 0.85);
+    --ct-length: 14px;
+    --ct-thickness: 2px;
+    --ct-offset: 10px;
+    background-image:
+      linear-gradient(var(--ct-color), var(--ct-color)),
+      linear-gradient(var(--ct-color), var(--ct-color)),
+      linear-gradient(var(--ct-color), var(--ct-color)),
+      linear-gradient(var(--ct-color), var(--ct-color)),
+      linear-gradient(var(--ct-color), var(--ct-color)),
+      linear-gradient(var(--ct-color), var(--ct-color)),
+      linear-gradient(var(--ct-color), var(--ct-color)),
+      linear-gradient(var(--ct-color), var(--ct-color));
+    background-repeat: no-repeat;
+    background-size:
+      var(--ct-length) var(--ct-thickness),  /* top-left, horizontal  */
+      var(--ct-thickness) var(--ct-length),  /* top-left, vertical    */
+      var(--ct-length) var(--ct-thickness),  /* top-right             */
+      var(--ct-thickness) var(--ct-length),
+      var(--ct-length) var(--ct-thickness),  /* bottom-left           */
+      var(--ct-thickness) var(--ct-length),
+      var(--ct-length) var(--ct-thickness),  /* bottom-right          */
+      var(--ct-thickness) var(--ct-length);
+    background-position:
+      left var(--ct-offset) top var(--ct-offset),
+      left var(--ct-offset) top var(--ct-offset),
+      right var(--ct-offset) top var(--ct-offset),
+      right var(--ct-offset) top var(--ct-offset),
+      left var(--ct-offset) bottom var(--ct-offset),
+      left var(--ct-offset) bottom var(--ct-offset),
+      right var(--ct-offset) bottom var(--ct-offset),
+      right var(--ct-offset) bottom var(--ct-offset);
+  }
+
+  .corner-ticks:hover {
+    --ct-color: #E0C878;
+  }
+
+  /* ── Ghost text: oversized stroke-only background words ─────────────
+     Always absolutely positioned + aria-hidden (SectionHeader's `ghost`
+     prop handles both). .text-ghost-navy is the variant for lighter
+     bands (red/pinstripe sections) where a gold stroke would vanish. */
+  .text-ghost {
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(201, 168, 76, 0.35);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .text-ghost-navy {
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(11, 27, 61, 0.4);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* ── Hairline: 1px gold divider ─────────────────────────────────────
+     Default = full-width horizontal rule. For a VERTICAL separator
+     between stat/footer columns keep the class for its color and
+     override the box with Tailwind: `<span className="hairline w-px
+     h-10" />` (utilities layer wins over the sizes set here).       */
+  .hairline {
+    display: block;
+    width: 100%;
+    height: 1px;
+    flex-shrink: 0;
+    border: 0;
+    background-color: rgba(201, 168, 76, 0.25);
+  }
+
+  /* ── Section index: gold Bebas numeral + 40px rule ──────────────────
+     Flex `row` follows the inline direction, so the rule mirrors to the
+     left of the numeral in RTL automatically. The index stays latin
+     digits (Bebas) in both languages — Arabic display titles get Cairo
+     via the existing html[dir=rtl] .font-bebas rule on .font-bebas
+     elements, this class is deliberately not part of that swap.      */
+  .section-index {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    line-height: 1;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #C9A84C;
+  }
+
+  .section-index::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 1px;
+    background-color: rgba(201, 168, 76, 0.6);
+  }
+
+  /* ── Marquee: seamless infinite ticker ──────────────────────────────
+     The track holds TWO identical copies of the content; the loop runs
+     translateX(0 → -50%), so copy 2 slides exactly into copy 1's place
+     and the animation restarts invisibly. RTL: transforms are physical
+     and in rtl the max-content track overflows to the LEFT, so the same
+     -50% shift still reveals copy 2 seamlessly — no dir override
+     needed. Pause on hover; fully static under prefers-reduced-motion
+     via the existing media block at the top of this file.            */
+  .marquee {
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .marquee-track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    will-change: transform;
+    animation: marquee-x 30s linear infinite;
+  }
+
+  .marquee:hover .marquee-track {
+    animation-play-state: paused;
+  }
+
+  /* ── Slashes: diagonal clip-path cuts (≈2.3°, constant at any width) ─
+     4vw of rise over 100vw of run = atan(0.04) ≈ 2.3° — inside the 2–4°
+     spec band, and the angle never changes with viewport size. Top and
+     bottom edges are parallel ("/"), for red-tinted ↔ navy transitions.
+     Give slashed sections enough vertical padding so the cut never
+     slices content.                                                  */
+  .slash-top {
+    clip-path: polygon(0 4vw, 100% 0, 100% 100%, 0 100%);
+  }
+
+  .slash-bottom {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 4vw), 0 100%);
+  }
+
+  /* ── Pinstripe: faint diagonal gold stripes for red-tinted bands ────
+     Implemented as a ::before overlay (NOT background-image) so it
+     composes with .corner-ticks and never fights the element's own
+     background. z-index:-1 inside the element's own stacking context
+     (isolation:isolate) keeps the stripes ABOVE the element's
+     background but BELOW its content; pointer-events:none keeps clicks
+     clean. Caveat: isolation creates a stacking context — fine for
+     bands/sections, avoid on elements whose children need to escape
+     into the global z-index order (overlays, dropdowns).             */
+  .pinstripe {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .pinstripe::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(201, 168, 76, 0.03) 0,
+      rgba(201, 168, 76, 0.03) 1px,
+      transparent 1px,
+      transparent 12px
+    );
+  }
+}
+
+/* Kept OUTSIDE @layer so the animation name resolves no matter how the
+   cascade layers settle. The track must contain exactly two identical
+   halves — see .marquee-track above and src/components/design/Marquee. */
+@keyframes marquee-x {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}

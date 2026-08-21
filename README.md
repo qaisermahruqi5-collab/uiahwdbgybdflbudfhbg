@@ -1,0 +1,149 @@
+# Genoa Academy Oman — Owner's Handbook
+
+Welcome! This is the upgraded website for **Genoa Academy Oman**, a youth football academy in Muscat, Oman. This guide tells you, in plain language, where everything lives and how to update it.
+
+## What the Site Is
+
+- **Pages:** Home, The Academy, Programs (schedule + full pricing), News, Calendar & Training Schedule, Join (registration form), Privacy, and a friendly 404 page.
+- **Age groups:** U6, U8, U10, U12, U14 and U16 — players aged 5 to 16. All training runs Monday, Wednesday and Thursday, with families choosing 2 or 3 sessions per week.
+- **Bilingual:** English and Arabic, with an EN/AR toggle in the navigation. Arabic switches the whole site to right-to-left (RTL) automatically.
+- **Registration:** The Join form emails applications to you via Web3Forms, with WhatsApp as a backup contact option.
+
+---
+
+## HOW TO EDIT YOUR INFO
+
+### Contact details & keys — one file only
+
+Open **`src/config/site.ts`**. Every contact detail on the site comes from this one file:
+
+| Key | What it controls |
+|-----|------------------|
+| `name` | Academy name shown across the site |
+| `whatsappNumber` | WhatsApp number for links (country code + number, **no** `+` sign) |
+| `whatsappDisplay` | The pretty number shown to visitors (e.g. `+968 9121 1599`) |
+| `email` | Contact email address |
+| `instagramUrl` | Link to your Instagram profile |
+| `instagramHandle` | The @handle shown on screen |
+| `web3formsKey` | The key that delivers form submissions to your inbox |
+| `web3formsEndpoint` | Web3Forms API address (leave as-is) |
+| `location` | City/country line (e.g. `Muscat, Oman`) |
+| `ageMin` / `ageMax` | Age range accepted by the registration form |
+
+> **⚠️ Changing `email` does NOT change where applications are delivered.** The destination inbox is baked into `web3formsKey` by Web3Forms — `email` only controls the address shown on the site and used as the reply-to. To move delivery, get a new key at [web3forms.com](https://web3forms.com) (enter the new address, they email you a key), paste it into `web3formsKey`, rebuild, and send one test application to confirm it lands.
+
+### Text content — one English master + Arabic translations
+
+- **`src/data/content.ts`** — all English text: hero taglines, feature cards, The Academy copy and stats, the six age groups (name, ages, days, winter/summer times, session length), term structure, the full pricing tables, what's included with every place, terms & policies, coaches, news posts and FAQs. Anything that still needs your real information is marked with `TODO(OWNER)` — search the file for `TODO(OWNER)` (currently: the venue name and the seeded news posts).
+- **`src/data/content-ar.ts`** — the matching Arabic translations. When you change English text, update the Arabic copy to match (or ask your developer/translator).
+
+### Prices, days and times
+
+All programme figures live in **`src/data/content.ts`**:
+
+- `PROGRAMS` — one entry per age group (U6 → U16): ages, description, training days, winter slot, summer slot and session length.
+- `TERMS` — the three-term season structure (13 / 7 / 13 weeks, 33 total).
+- `PRICE_BANDS` — the fee tables. Prices are grouped into two bands (`u6u8` and `u10u16`); each band has one row for **2 sessions / week** and one for **3 sessions / week**, with each term's upfront price, its monthly instalment, and the Full Season price.
+- `INCLUDED` — the "what every registered player receives" list.
+- `POLICIES` — the terms, payment, cancellation and refund summaries.
+
+Change a number in one of these arrays and it updates everywhere it appears (programme cards, pricing tables, calendar, FAQ answers are written separately in `FAQS`).
+
+### News posts
+
+`NEWS` in **`src/data/content.ts`** drives the News tab. Each post needs an `id`, an ISO `date` (e.g. `2026-08-10`), a human `dateLabel`, a `category`, a `title` and an `excerpt`. Newest first. Delete the array's contents and the page shows a friendly "no news yet" message instead.
+
+---
+
+## HOW TO UPDATE IMAGES & VIDEOS
+
+Every photo and video on the site lives in **one** slideshow, listed in **`src/data/media.ts`**.
+
+1. Drop the new file into **`public/`**.
+2. Add an entry to `GALLERY_MEDIA` in `src/data/media.ts` — `kind: 'image'` (with `jpg`, `webp`, `width`, `height`) or `kind: 'video'` (with `src`, `poster`, `width`, `height`). The `index` number is used in the alt text.
+3. Each photo also wants a smaller `.webp` copy that the site prefers for speed. Either ask your developer, or run this one-liner (needs Python + Pillow):
+
+   ```bash
+   python -c "from PIL import Image; Image.open('public/media-1.jpg').save('public/media-1.webp', quality=80)"
+   ```
+
+The logo (`public/logo.png`, transparent background), the hero photo (`public/player.jpg` / `.webp`) and the app icons are separate — replace those files in place, keeping the same filenames.
+
+---
+
+## HOW TO BUILD & HOST
+
+```bash
+npm install     # first time only
+npm run build   # produces the dist/ folder
+```
+
+Upload **everything inside `dist/`** to your host:
+
+- **Netlify (free, easiest):** sign up at netlify.com, drag the `dist/` folder onto the dashboard. Live instantly.
+- **Vercel (free):** sign up at vercel.com, `npm i -g vercel`, then `cd dist && vercel --prod`.
+- **cPanel / traditional host:** File Manager → `public_html/` → upload all `dist/` contents.
+- **GitHub Pages (free):** push `dist/` contents to a repo → Settings → Pages → deploy from branch.
+
+---
+
+## BEFORE GOING LIVE — Checklist
+
+- [ ] **Domain:** replace the placeholder domain in `public/sitemap.xml` and `public/robots.txt`, and set the absolute `og:image` URL in `index.html` (each spot is marked with a `TODO(owner)` comment).
+- [ ] **Content:** fill every `TODO(OWNER)` item in `src/data/content.ts` (and mirror it in `src/data/content-ar.ts`) — currently just the training venue name in the FAQ.
+- [ ] **News:** replace the three seeded posts in `NEWS` with real academy announcements (and their Arabic versions).
+- [ ] **Prices:** confirm the figures in `PRICE_BANDS` still match the current Programme & Pricing Guide before launch.
+- [ ] **Form test:** submit a real test registration and confirm the email arrives in your inbox.
+- [ ] **Spam protection:** enable reCAPTCHA for your key in the Web3Forms dashboard.
+- [ ] **Analytics (optional):** in `index.html`, replace `your-domain.com` and uncomment the Plausible snippet marked `ANALYTICS (optional)`.
+
+---
+
+## SECURITY
+
+### Security headers
+
+**`netlify.toml`** sets a full header suite on every response — a Content Security Policy, HSTS, `X-Frame-Options: DENY` and `frame-ancestors 'none'` (clickjacking), `nosniff`, a locked-down `Permissions-Policy`, and a strict referrer policy. These headers are what a scanner like [securityheaders.com](https://securityheaders.com) grades you on, so run it once the site is live.
+
+The CSP is written against exactly what this site loads. **If you add anything third-party — an analytics script, a Google Font, a YouTube embed, a booking widget — the browser will block it until you widen the matching directive.** Symptoms are always the same: the thing silently doesn't appear, and the browser console shows a "Refused to load…" message naming the directive to change.
+
+One special case: the CSP pins the inline structured-data (JSON-LD) block in `index.html` by hash. If you edit that block, regenerate the hash:
+
+```bash
+npm run csp-hash
+```
+
+Paste the printed value into the `script-src` directive in `netlify.toml`. Skipping this doesn't break the site — only your structured data stops being read by search engines.
+
+**Hosting somewhere other than Netlify?** The headers live only in `netlify.toml`, which other hosts ignore. Reproduce the same set in your host's config (Vercel → `vercel.json` `headers`; Cloudflare Pages → a `_headers` file; Apache → `.htaccess`; nginx → `add_header`). Without them the site still works, but you lose the protection.
+
+### The registration form
+
+The form posts to Web3Forms from the visitor's browser, so **the access key is visible in the page source — that is normal and unavoidable for any static site with no backend.** The key can only submit to your form; it can't read past submissions. To stop anyone abusing it:
+
+- Turn on **captcha** (hCaptcha or reCAPTCHA) for the key in your Web3Forms dashboard.
+- Set the **allowed domain** for the key to your production domain, so submissions from anywhere else are rejected.
+
+The form already carries a hidden honeypot field, a duplicate-submission guard, length caps on every input, and required parental consent.
+
+### Keeping dependencies clean
+
+```bash
+npm audit          # lists known vulnerabilities
+npm outdated       # lists packages behind their latest release
+```
+
+Worth running before each deploy.
+
+---
+
+## TECH NOTES
+
+- **HashRouter** is used (`/#/about`-style URLs) so the site works on any static host with **zero configuration**. If you later want cleaner URLs and better SEO, switch to BrowserRouter and add rewrite rules on your host — a small developer task.
+- **Fonts are self-hosted** (Bebas Neue + Inter), so no external font requests and no layout shift.
+- **The form submits via Web3Forms** using a background fetch (no page redirect), includes spam honeypot + consent checkbox, and **WhatsApp remains a backup CTA** throughout the site.
+
+---
+
+**Built with:** React 19 · TypeScript · Vite · Tailwind CSS · GSAP · Lenis · Web3Forms
+**For:** Genoa Academy Oman — Muscat, Oman

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# TODO(owner): replace the placeholder domain below with the production domain
+Sitemap: https://www.genoaacademyoman.com/sitemap.xml
