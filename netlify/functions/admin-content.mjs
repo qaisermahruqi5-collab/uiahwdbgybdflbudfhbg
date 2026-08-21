@@ -5,7 +5,7 @@
 // laptop with a live session still cannot publish to the website.
 
 import { hasSession, passcodeMatches, json } from './lib/auth.mjs';
-import { readJson, writeJson, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
+import { readJson, writeJson, diagnoseAccess, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_TEXT = 4000;
@@ -96,8 +96,16 @@ export default async function handler(request) {
     try {
       const [news, schedule] = await Promise.all([readJson(NEWS_PATH), readJson(SCHEDULE_PATH)]);
       if (!news.data || !schedule.data) {
+        // A 404 here is ambiguous: the file may be missing, or the token may
+        // simply be unable to see a private repo. Ask GitHub which it is.
+        const access = await diagnoseAccess();
+        if (!access.repoVisible) return json({ error: access.reason }, 502);
         return json(
-          { error: `content/*.json not found in ${process.env.GITHUB_REPO ?? 'the configured repo'} on branch main.` },
+          {
+            error:
+              `Signed in and the repository is reachable, but content/news.json or ` +
+              `content/schedule.json is missing on branch ${access.defaultBranch ?? 'main'}.`,
+          },
           502
         );
       }

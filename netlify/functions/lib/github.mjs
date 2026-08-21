@@ -84,6 +84,61 @@ export function writeJson({ path, data, message, sha }) {
   });
 }
 
+
+/**
+ * Why can we not read the repo?
+ *
+ * GitHub returns 404 — not 403 — for a private repository the caller cannot
+ * see, so it deliberately does not leak whether the repo exists. That means a
+ * missing file and a token without access are indistinguishable at the file
+ * level. Probing the repository root separates them.
+ */
+export async function diagnoseAccess() {
+  const { owner, name } = repoParts();
+  const res = await fetch(`${API}/repos/${owner}/${name}`, {
+    headers: {
+      Authorization: `Bearer ${requireEnv('GITHUB_TOKEN')}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'genoa-academy-admin',
+    },
+  });
+
+  if (res.ok) {
+    const repo = await res.json();
+    return {
+      repoVisible: true,
+      defaultBranch: repo.default_branch,
+      canWrite: Boolean(repo.permissions?.push),
+      reason: repo.permissions?.push
+        ? null
+        : `The token can read ${owner}/${name} but not write to it. Set Contents to "Read and write".`,
+    };
+  }
+
+  if (res.status === 401) {
+    return {
+      repoVisible: false,
+      reason: 'GITHUB_TOKEN is invalid or expired. Generate a new one and update it in Netlify.',
+    };
+  }
+
+  if (res.status === 404) {
+    return {
+      repoVisible: false,
+      reason:
+        `The token cannot see ${owner}/${name}. That repository is private, and GitHub answers 404 ` +
+        `for private repositories a token has no access to. Check, in order: ` +
+        `(1) GITHUB_REPO reads exactly "${owner}/${name}"; ` +
+        `(2) the token's "Repository access" explicitly includes this repository; ` +
+        `(3) its Contents permission is "Read and write"; ` +
+        `(4) the token belongs to an account that can reach this repository.`,
+    };
+  }
+
+  return { repoVisible: false, reason: `GitHub returned ${res.status} for ${owner}/${name}.` };
+}
+
 export const NEWS_PATH = 'content/news.json';
 export const SCHEDULE_PATH = 'content/schedule.json';
 export const UPLOAD_DIR = 'public/uploads';

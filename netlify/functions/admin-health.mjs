@@ -5,7 +5,7 @@
 // so it is safe to read from a browser. Requires a valid session.
 
 import { hasSession, json } from './lib/auth.mjs';
-import { readJson, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
+import { readJson, diagnoseAccess, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
 
 const present = (name) => {
   const v = process.env[name];
@@ -27,6 +27,13 @@ export default async function handler(request) {
   // GITHUB_REPO is not a secret, and seeing it is the fastest way to spot a typo.
   const repo = process.env.GITHUB_REPO ?? '(unset)';
 
+  let access;
+  try {
+    access = await diagnoseAccess();
+  } catch (err) {
+    access = { repoVisible: false, reason: String(err.message ?? err).slice(0, 300) };
+  }
+
   const checks = {};
   for (const [label, path] of [['news', NEWS_PATH], ['schedule', SCHEDULE_PATH]]) {
     try {
@@ -39,8 +46,9 @@ export default async function handler(request) {
     }
   }
 
-  const healthy = Object.values(checks).every((c) => c.ok) && env.GITHUB_TOKEN.set && env.GITHUB_REPO.set;
-  return json({ healthy, repo, env, checks });
+  const healthy =
+    access.repoVisible && access.canWrite !== false && Object.values(checks).every((c) => c.ok);
+  return json({ healthy, repo, access, env, checks });
 }
 
 export const config = { path: '/api/admin/health' };
