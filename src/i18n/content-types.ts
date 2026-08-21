@@ -72,7 +72,8 @@ export type SiteContentOverrides = {
   included?: string[];
   policies?: Array<Partial<PolicyItem>>;
   coaches?: Array<Partial<Omit<Coach, 'initials'>>>;
-  news?: Array<Partial<Omit<NewsItem, 'id' | 'date'>>>;
+  /* `image` is shared across languages — never localized. */
+  news?: Array<Partial<Omit<NewsItem, 'id' | 'date' | 'image'>>>;
   faqs?: Array<Partial<FaqItem>>;
 };
 

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
@@ -12,10 +12,25 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function NewsPage() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const content = useContent();
 
   usePageTitle(t('page.news'), t('meta.newsDesc'));
+
+  /* The stored date is a plain ISO day; the label is built per language so
+     editors never have to type a formatted date by hand. Arabic keeps Latin
+     digits ('-u-nu-latn') to match the rest of the Arabic site. */
+  const formatDate = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(lang === 'ar' ? 'ar-u-nu-latn' : 'en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    return (iso: string) => {
+      const parsed = new Date(`${iso}T00:00:00`);
+      return Number.isNaN(parsed.getTime()) ? iso : fmt.format(parsed);
+    };
+  }, [lang]);
 
   useGSAP(() => {
     if (!containerRef.current) return;
@@ -101,7 +116,7 @@ export default function NewsPage() {
                         dateTime={item.date}
                         className="font-inter text-[0.75rem] font-medium uppercase tracking-[0.12em] text-[#8A94A6]"
                       >
-                        {item.dateLabel}
+                        {formatDate(item.date)}
                       </time>
                     </div>
 

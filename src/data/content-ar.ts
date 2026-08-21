@@ -10,17 +10,23 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import type { SiteContentOverrides } from '@/i18n/content-types';
+import scheduleData from '../../content/schedule.json';
+import { RAW_NEWS } from '@/data/content';
 
-const TRAINING_DAYS_AR = 'الاثنين / الأربعاء / الخميس';
-const SESSIONS_CHOICE_AR = 'حصتان أو 3 حصص أسبوعيًا';
-const WINTER_EARLY = '4:30 – 5:30 مساءً';
-const SUMMER_EARLY = '5:00 – 6:00 مساءً';
-const WINTER_MID = '5:30 – 7:00 مساءً';
-const SUMMER_MID = '6:00 – 7:30 مساءً';
-const WINTER_LATE = '7:00 – 8:30 مساءً';
-const SUMMER_LATE = '7:30 – 9:00 مساءً';
-const DUR_60 = '60 دقيقة';
-const DUR_90 = '90 دقيقة';
+/* The schedule, term weeks and news posts are owned by content/*.json and
+   edited through the dashboard / Telegram bot. Arabic is read from the same
+   files (the *Ar fields) so one edit updates BOTH languages — never
+   hard-code those values here again, or the two will drift apart. */
+function squadAr(id: string) {
+  const s = scheduleData.squads.find(x => x.id === id);
+  return {
+    days: s?.daysAr ?? '',
+    winterTime: s?.winterTimeAr ?? '',
+    summerTime: s?.summerTimeAr ?? '',
+    duration: s?.durationAr ?? '',
+    sessions: s?.sessionsAr ?? '',
+  };
+}
 
 export const CONTENT_AR: SiteContentOverrides = {
   /* ── Home hero ─────────────────────────────────────────────────── */
@@ -68,66 +74,42 @@ export const CONTENT_AR: SiteContentOverrides = {
       ages: 'من 5 إلى 6 سنوات',
       description:
         'الخطوات الأولى مع الكرة — التوافق الحركي والتوازن والثقة، عبر ألعاب قصيرة عالية الحماس يشارك فيها كل طفل باستمرار.',
-      days: TRAINING_DAYS_AR,
-      winterTime: WINTER_EARLY,
-      summerTime: SUMMER_EARLY,
-      duration: DUR_60,
-      sessions: SESSIONS_CHOICE_AR,
+      ...squadAr('u6'),
     },
     {
       id: 'u8',
       ages: 'من 7 إلى 8 سنوات',
       description:
         'إتقان الكرة وحب اللعبة مدى الحياة، من خلال حصص ممتعة يحصل فيها كل لاعب على لمسات متواصلة بالكرة.',
-      days: TRAINING_DAYS_AR,
-      winterTime: WINTER_EARLY,
-      summerTime: SUMMER_EARLY,
-      duration: DUR_60,
-      sessions: SESSIONS_CHOICE_AR,
+      ...squadAr('u8'),
     },
     {
       id: 'u10',
       ages: 'من 9 إلى 10 سنوات',
       description:
         'المراوغة والتمرير وجودة اللمسة الأولى تنتقل إلى المباريات المصغّرة، حيث تبدأ المهارة في الالتقاء باتخاذ القرار.',
-      days: TRAINING_DAYS_AR,
-      winterTime: WINTER_MID,
-      summerTime: SUMMER_MID,
-      duration: DUR_90,
-      sessions: SESSIONS_CHOICE_AR,
+      ...squadAr('u10'),
     },
     {
       id: 'u12',
       ages: 'من 11 إلى 12 سنة',
       description:
         'اللعب المركزي، ومسح الملعب بالنظر، وفهم المباراة — يتعلم اللاعبون قراءة اللعب بدل مطاردة الكرة.',
-      days: TRAINING_DAYS_AR,
-      winterTime: WINTER_MID,
-      summerTime: SUMMER_MID,
-      duration: DUR_90,
-      sessions: SESSIONS_CHOICE_AR,
+      ...squadAr('u12'),
     },
     {
       id: 'u14',
       ages: 'من 13 إلى 14 سنة',
       description:
         'أنظمة اللعب الجماعي، والضغط، والتحولات، مع تدريبات بدنية مناسبة للعمر مع ازدياد تنافسية اللعب.',
-      days: TRAINING_DAYS_AR,
-      winterTime: WINTER_LATE,
-      summerTime: SUMMER_LATE,
-      duration: DUR_90,
-      sessions: SESSIONS_CHOICE_AR,
+      ...squadAr('u14'),
     },
     {
       id: 'u16',
       ages: 'من 15 إلى 16 سنة',
       description:
         'خطط تطوير فردية، ومباريات تنافسية، والمعايير المطلوبة من اللاعبين الطامحين إلى المستوى التالي في اللعبة.',
-      days: TRAINING_DAYS_AR,
-      winterTime: WINTER_LATE,
-      summerTime: SUMMER_LATE,
-      duration: DUR_90,
-      sessions: SESSIONS_CHOICE_AR,
+      ...squadAr('u16'),
     },
   ],
 
@@ -138,12 +120,7 @@ export const CONTENT_AR: SiteContentOverrides = {
     'تُحدَّد الرسوم حسب الفئة العمرية وعدد الحصص الأسبوعية التي تختارها. يمكن دفع كل فصل دراسي مقدمًا أو تقسيطه شهريًا، ويشمل سعر الموسم الكامل الفصول الثلاثة مدفوعة مقدمًا.',
 
   /* ── Term structure ────────────────────────────────────────────── */
-  terms: [
-    { term: 'الفصل الأول', duration: '13 أسبوعًا' },
-    { term: 'الفصل الثاني', duration: '7 أسابيع' },
-    { term: 'الفصل الثالث', duration: '13 أسبوعًا' },
-    { term: 'السنة الدراسية الكاملة', duration: '33 أسبوعًا' },
-  ],
+  terms: scheduleData.terms.map(t => ({ term: t.termAr, duration: t.durationAr })),
 
   /* ── Pricing ───────────────────────────────────────────────────── */
   priceBands: [
@@ -242,30 +219,12 @@ export const CONTENT_AR: SiteContentOverrides = {
     },
   ],
 
-  /* ── News ──────────────────────────────────────────────────────── */
-  news: [
-    {
-      dateLabel: '10 أغسطس 2026',
-      category: 'التسجيل',
-      title: 'التسجيل مفتوح للموسم الجديد في الأكاديمية',
-      excerpt:
-        'الأماكن متاحة في جميع الفئات العمرية الست، من تحت 6 إلى تحت 16 سنة. تختار كل أسرة حصتين أو 3 حصص أسبوعيًا، ويُدعى كل لاعب جديد إلى حصة تجريبية أولى قبل الالتحاق.',
-    },
-    {
-      dateLabel: '1 أغسطس 2026',
-      category: 'الموسم',
-      title: 'موسم 2026/27: ثلاثة فصول و33 أسبوعًا من التدريب',
-      excerpt:
-        'ينقسم العام التدريبي إلى الفصل الأول (13 أسبوعًا) والفصل الثاني (7 أسابيع) والفصل الثالث (13 أسبوعًا). يمكن دفع كل فصل مقدمًا أو على أقساط شهرية، مع خيار الموسم الكامل للأسر التي تحجز الفصول الثلاثة.',
-    },
-    {
-      dateLabel: '20 يوليو 2026',
-      category: 'الأكاديمية',
-      title: 'هوية تدريبية متوافقة مع قطاع الناشئين في نادي جنوى',
-      excerpt:
-        'تتبع كل حصة هذا الموسم مبادئ تدريبية متوافقة مع نهج تطوير الناشئين في نادي جنوى، ينفذها طاقم مؤهل من UEFA، مع تقرير تطوير يُشارك مع أولياء الأمور كل فصل دراسي.',
-    },
-  ],
+  /* ── News ── Arabic comes from content/news.json (*Ar fields) ─── */
+  news: RAW_NEWS.map(n => ({
+    category: n.categoryAr || n.category,
+    title: n.titleAr || n.title,
+    excerpt: n.excerptAr || n.excerpt,
+  })),
 
   /* ── FAQ ───────────────────────────────────────────────────────── */
   faqs: [

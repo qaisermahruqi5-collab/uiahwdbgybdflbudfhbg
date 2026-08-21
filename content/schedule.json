@@ -1,0 +1,113 @@
+{
+  "_comment": "Training schedule + term structure. Edited by the admin dashboard and the Telegram bot - safe to edit by hand too. Fields ending in 'Ar' are the Arabic versions.",
+  "squads": [
+    {
+      "id": "u6",
+      "days": "Mon / Wed / Thu",
+      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "winterTime": "4:30 – 5:30 PM",
+      "winterTimeAr": "4:30 – 5:30 مساءً",
+      "summerTime": "5:00 – 6:00 PM",
+      "summerTimeAr": "5:00 – 6:00 مساءً",
+      "duration": "60 minutes",
+      "durationAr": "60 دقيقة",
+      "sessions": "2 or 3 sessions / week",
+      "sessionsAr": "حصتان أو 3 حصص أسبوعيًا"
+    },
+    {
+      "id": "u8",
+      "days": "Mon / Wed / Thu",
+      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "winterTime": "4:30 – 5:30 PM",
+      "winterTimeAr": "4:30 – 5:30 مساءً",
+      "summerTime": "5:00 – 6:00 PM",
+      "summerTimeAr": "5:00 – 6:00 مساءً",
+      "duration": "60 minutes",
+      "durationAr": "60 دقيقة",
+      "sessions": "2 or 3 sessions / week",
+      "sessionsAr": "حصتان أو 3 حصص أسبوعيًا"
+    },
+    {
+      "id": "u10",
+      "days": "Mon / Wed / Thu",
+      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "winterTime": "5:30 – 7:00 PM",
+      "winterTimeAr": "5:30 – 7:00 مساءً",
+      "summerTime": "6:00 – 7:30 PM",
+      "summerTimeAr": "6:00 – 7:30 مساءً",
+      "duration": "90 minutes",
+      "durationAr": "90 دقيقة",
+      "sessions": "2 or 3 sessions / week",
+      "sessionsAr": "حصتان أو 3 حصص أسبوعيًا"
+    },
+    {
+      "id": "u12",
+      "days": "Mon / Wed / Thu",
+      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "winterTime": "5:30 – 7:00 PM",
+      "winterTimeAr": "5:30 – 7:00 مساءً",
+      "summerTime": "6:00 – 7:30 PM",
+      "summerTimeAr": "6:00 – 7:30 مساءً",
+      "duration": "90 minutes",
+      "durationAr": "90 دقيقة",
+      "sessions": "2 or 3 sessions / week",
+      "sessionsAr": "حصتان أو 3 حصص أسبوعيًا"
+    },
+    {
+      "id": "u14",
+      "days": "Mon / Wed / Thu",
+      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "winterTime": "7:00 – 8:30 PM",
+      "winterTimeAr": "7:00 – 8:30 مساءً",
+      "summerTime": "7:30 – 9:00 PM",
+      "summerTimeAr": "7:30 – 9:00 مساءً",
+      "duration": "90 minutes",
+      "durationAr": "90 دقيقة",
+      "sessions": "2 or 3 sessions / week",
+      "sessionsAr": "حصتان أو 3 حصص أسبوعيًا"
+    },
+    {
+      "id": "u16",
+      "days": "Mon / Wed / Thu",
+      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "winterTime": "7:00 – 8:30 PM",
+      "winterTimeAr": "7:00 – 8:30 مساءً",
+      "summerTime": "7:30 – 9:00 PM",
+      "summerTimeAr": "7:30 – 9:00 مساءً",
+      "duration": "90 minutes",
+      "durationAr": "90 دقيقة",
+      "sessions": "2 or 3 sessions / week",
+      "sessionsAr": "حصتان أو 3 حصص أسبوعيًا"
+    }
+  ],
+  "terms": [
+    {
+      "id": "term1",
+      "term": "Term 1",
+      "termAr": "الفصل الأول",
+      "duration": "13 weeks",
+      "durationAr": "13 أسبوعًا"
+    },
+    {
+      "id": "term2",
+      "term": "Term 2",
+      "termAr": "الفصل الثاني",
+      "duration": "7 weeks",
+      "durationAr": "7 أسابيع"
+    },
+    {
+      "id": "term3",
+      "term": "Term 3",
+      "termAr": "الفصل الثالث",
+      "duration": "13 weeks",
+      "durationAr": "13 أسبوعًا"
+    },
+    {
+      "id": "total",
+      "term": "Full academic year",
+      "termAr": "السنة الدراسية الكاملة",
+      "duration": "33 weeks",
+      "durationAr": "33 أسبوعًا"
+    }
+  ]
+}

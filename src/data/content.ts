@@ -4,6 +4,29 @@
 // "Programme & Pricing Guide" (Genoa Football Academy, Muscat, Oman).
 // Values still marked TODO(OWNER) are drafts awaiting real data.
 // ═══════════════════════════════════════════════════════════════════
+//
+// EDITABLE AT RUNTIME: the training schedule, term weeks and news posts
+// no longer live in this file — they come from content/schedule.json and
+// content/news.json, which the admin dashboard and the Telegram bot
+// rewrite. Everything else here is marketing copy, edited in code.
+// ═══════════════════════════════════════════════════════════════════
+
+import scheduleData from '../../content/schedule.json';
+import newsData from '../../content/news.json';
+
+/** Look up one squad's editable schedule row; falls back to a blank row. */
+function squad(id: string) {
+  return (
+    scheduleData.squads.find(s => s.id === id) ?? {
+      id,
+      days: '', daysAr: '',
+      winterTime: '', winterTimeAr: '',
+      summerTime: '', summerTimeAr: '',
+      duration: '', durationAr: '',
+      sessions: '', sessionsAr: '',
+    }
+  );
+}
 
 /* ── Home hero ─────────────────────────────────────────────────── */
 export const HERO_CHIPS: string[] = [
@@ -82,9 +105,6 @@ export interface Program {
   priceBand: PriceBandId;
 }
 
-const TRAINING_DAYS = 'Mon / Wed / Thu';
-const SESSIONS_CHOICE = '2 or 3 sessions / week';
-
 export const PROGRAMS: Program[] = [
   {
     id: 'u6',
@@ -94,11 +114,11 @@ export const PROGRAMS: Program[] = [
     maxAge: 6,
     description:
       'First steps with the ball — coordination, balance and confidence, built through short, high-energy games where every child is always involved.',
-    days: TRAINING_DAYS,
-    winterTime: '4:30 – 5:30 PM',
-    summerTime: '5:00 – 6:00 PM',
-    duration: '60 minutes',
-    sessions: SESSIONS_CHOICE,
+    days: squad('u6').days,
+    winterTime: squad('u6').winterTime,
+    summerTime: squad('u6').summerTime,
+    duration: squad('u6').duration,
+    sessions: squad('u6').sessions,
     priceBand: 'u6u8',
   },
   {
@@ -109,11 +129,11 @@ export const PROGRAMS: Program[] = [
     maxAge: 8,
     description:
       'Ball mastery and a lifelong love of the game, through playful sessions where every player gets constant touches on the ball.',
-    days: TRAINING_DAYS,
-    winterTime: '4:30 – 5:30 PM',
-    summerTime: '5:00 – 6:00 PM',
-    duration: '60 minutes',
-    sessions: SESSIONS_CHOICE,
+    days: squad('u8').days,
+    winterTime: squad('u8').winterTime,
+    summerTime: squad('u8').summerTime,
+    duration: squad('u8').duration,
+    sessions: squad('u8').sessions,
     priceBand: 'u6u8',
   },
   {
@@ -124,11 +144,11 @@ export const PROGRAMS: Program[] = [
     maxAge: 10,
     description:
       'Dribbling, passing and first-touch quality carried into small-sided games, where technique starts to meet decision-making.',
-    days: TRAINING_DAYS,
-    winterTime: '5:30 – 7:00 PM',
-    summerTime: '6:00 – 7:30 PM',
-    duration: '90 minutes',
-    sessions: SESSIONS_CHOICE,
+    days: squad('u10').days,
+    winterTime: squad('u10').winterTime,
+    summerTime: squad('u10').summerTime,
+    duration: squad('u10').duration,
+    sessions: squad('u10').sessions,
     priceBand: 'u10u16',
   },
   {
@@ -139,11 +159,11 @@ export const PROGRAMS: Program[] = [
     maxAge: 12,
     description:
       'Positional play, scanning and game understanding — players learn to read the game rather than chase the ball.',
-    days: TRAINING_DAYS,
-    winterTime: '5:30 – 7:00 PM',
-    summerTime: '6:00 – 7:30 PM',
-    duration: '90 minutes',
-    sessions: SESSIONS_CHOICE,
+    days: squad('u12').days,
+    winterTime: squad('u12').winterTime,
+    summerTime: squad('u12').summerTime,
+    duration: squad('u12').duration,
+    sessions: squad('u12').sessions,
     priceBand: 'u10u16',
   },
   {
@@ -154,11 +174,11 @@ export const PROGRAMS: Program[] = [
     maxAge: 14,
     description:
       'Team systems, pressing and transitions, with age-appropriate physical work as the game becomes genuinely competitive.',
-    days: TRAINING_DAYS,
-    winterTime: '7:00 – 8:30 PM',
-    summerTime: '7:30 – 9:00 PM',
-    duration: '90 minutes',
-    sessions: SESSIONS_CHOICE,
+    days: squad('u14').days,
+    winterTime: squad('u14').winterTime,
+    summerTime: squad('u14').summerTime,
+    duration: squad('u14').duration,
+    sessions: squad('u14').sessions,
     priceBand: 'u10u16',
   },
   {
@@ -169,11 +189,11 @@ export const PROGRAMS: Program[] = [
     maxAge: 16,
     description:
       'Individual development plans, competitive fixtures and the standards expected of players chasing the next level of the game.',
-    days: TRAINING_DAYS,
-    winterTime: '7:00 – 8:30 PM',
-    summerTime: '7:30 – 9:00 PM',
-    duration: '90 minutes',
-    sessions: SESSIONS_CHOICE,
+    days: squad('u16').days,
+    winterTime: squad('u16').winterTime,
+    summerTime: squad('u16').summerTime,
+    duration: squad('u16').duration,
+    sessions: squad('u16').sessions,
     priceBand: 'u10u16',
   },
 ];
@@ -190,12 +210,10 @@ export interface TermRow {
   duration: string;
 }
 
-export const TERMS: TermRow[] = [
-  { term: 'Term 1', duration: '13 weeks' },
-  { term: 'Term 2', duration: '7 weeks' },
-  { term: 'Term 3', duration: '13 weeks' },
-  { term: 'Full academic year', duration: '33 weeks' },
-];
+export const TERMS: TermRow[] = scheduleData.terms.map(t => ({
+  term: t.term,
+  duration: t.duration,
+}));
 
 /* ── Pricing ── figures in OMR, from the Programme & Pricing Guide ─ */
 export interface PriceRow {
@@ -327,45 +345,59 @@ export const COACHES: Coach[] = [
   },
 ];
 
-/* ── News ── TODO(OWNER): replace with real academy announcements ─ */
+/* ── News ── edited via the dashboard / Telegram bot ───────────── */
+
+/** Optional photo on a news post. Files live in public/uploads/. */
+export interface NewsImage {
+  webp: string;
+  jpg: string;
+  width: number;
+  height: number;
+  alt: string;
+  altAr?: string;
+}
+
 export interface NewsItem {
   id: string;
-  date: string; // ISO — used for sorting and <time dateTime>
-  dateLabel: string;
+  /** ISO date (YYYY-MM-DD) — sorts the list and fills <time dateTime>. */
+  date: string;
   category: string;
   title: string;
   excerpt: string;
+  image?: NewsImage;
 }
 
-export const NEWS: NewsItem[] = [
-  {
-    id: 'registration-open',
-    date: '2026-08-10',
-    dateLabel: '10 August 2026',
-    category: 'Registration',
-    title: 'Registration is open for the new academy season',
-    excerpt:
-      'Places are open across all six age groups, U6 to U16. Families choose 2 or 3 sessions per week, and every new player is invited to a first trial session before committing.',
-  },
-  {
-    id: 'season-structure',
-    date: '2026-08-01',
-    dateLabel: '1 August 2026',
-    category: 'Season',
-    title: 'The 2026/27 season: three terms, 33 weeks of training',
-    excerpt:
-      'The academy year is split into Term 1 (13 weeks), Term 2 (7 weeks) and Term 3 (13 weeks). Each term can be paid upfront or in monthly instalments, with a Full Season option for families booking all three.',
-  },
-  {
-    id: 'genoa-methodology',
-    date: '2026-07-20',
-    dateLabel: '20 July 2026',
-    category: 'Academy',
-    title: 'Training identity aligned with Genoa CFC’s youth sector',
-    excerpt:
-      'Every session this season follows training principles aligned with Genoa CFC’s youth-development approach, delivered by UEFA-qualified staff and reported back to parents in a development assessment each term.',
-  },
-];
+/** Shape of one raw entry in content/news.json. */
+type RawNews = {
+  id: string;
+  date: string;
+  category: string;
+  categoryAr?: string | null;
+  title: string;
+  titleAr?: string | null;
+  excerpt: string;
+  excerptAr?: string | null;
+  image?: NewsImage | null;
+};
+
+/** Newest first, whatever order the file happens to be saved in. */
+const byNewest = (a: RawNews, b: RawNews) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+
+/**
+ * The raw posts in DISPLAY order. Arabic overrides are merged by index, so
+ * content-ar.ts MUST map over this exact array — mapping the unsorted file
+ * order would pair Arabic text with the wrong post.
+ */
+export const RAW_NEWS: RawNews[] = [...(newsData.items as RawNews[])].sort(byNewest);
+
+export const NEWS: NewsItem[] = RAW_NEWS.map(item => ({
+  id: item.id,
+  date: item.date,
+  category: item.category,
+  title: item.title,
+  excerpt: item.excerpt,
+  ...(item.image ? { image: item.image } : {}),
+}));
 
 /* ── FAQ ───────────────────────────────────────────────────────── */
 export interface FaqItem {

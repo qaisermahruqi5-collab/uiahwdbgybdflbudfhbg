@@ -1,0 +1,38 @@
+{
+  "_comment": "Academy news, newest first. Edited by the admin dashboard and the Telegram bot. 'date' is ISO (YYYY-MM-DD); the displayed date is formatted per language automatically. Arabic fields are optional - if blank, the English text is shown.",
+  "items": [
+    {
+      "id": "registration-open",
+      "date": "2026-08-10",
+      "category": "Registration",
+      "categoryAr": "التسجيل",
+      "title": "Registration is open for the new academy season",
+      "titleAr": "التسجيل مفتوح للموسم الجديد في الأكاديمية",
+      "excerpt": "Places are open across all six age groups, U6 to U16. Families choose 2 or 3 sessions per week, and every new player is invited to a first trial session before committing.",
+      "excerptAr": "الأماكن متاحة في جميع الفئات العمرية الست، من تحت 6 إلى تحت 16 سنة. تختار كل أسرة حصتين أو 3 حصص أسبوعيًا، ويُدعى كل لاعب جديد إلى حصة تجريبية أولى قبل الالتحاق.",
+      "image": null
+    },
+    {
+      "id": "season-structure",
+      "date": "2026-08-01",
+      "category": "Season",
+      "categoryAr": "الموسم",
+      "title": "The 2026/27 season: three terms, 33 weeks of training",
+      "titleAr": "موسم 2026/27: ثلاثة فصول و33 أسبوعًا من التدريب",
+      "excerpt": "The academy year is split into Term 1 (13 weeks), Term 2 (7 weeks) and Term 3 (13 weeks). Each term can be paid upfront or in monthly instalments, with a Full Season option for families booking all three.",
+      "excerptAr": "ينقسم العام التدريبي إلى الفصل الأول (13 أسبوعًا) والفصل الثاني (7 أسابيع) والفصل الثالث (13 أسبوعًا). يمكن دفع كل فصل مقدمًا أو على أقساط شهرية، مع خيار الموسم الكامل للأسر التي تحجز الفصول الثلاثة.",
+      "image": null
+    },
+    {
+      "id": "genoa-methodology",
+      "date": "2026-07-20",
+      "category": "Academy",
+      "categoryAr": "الأكاديمية",
+      "title": "Training identity aligned with Genoa CFC’s youth sector",
+      "titleAr": "هوية تدريبية متوافقة مع قطاع الناشئين في نادي جنوى",
+      "excerpt": "Every session this season follows training principles aligned with Genoa CFC’s youth-development approach, delivered by UEFA-qualified staff and reported back to parents in a development assessment each term.",
+      "excerptAr": "تتبع كل حصة هذا الموسم مبادئ تدريبية متوافقة مع نهج تطوير الناشئين في نادي جنوى، ينفذها طاقم مؤهل من UEFA، مع تقرير تطوير يُشارك مع أولياء الأمور كل فصل دراسي.",
+      "image": null
+    }
+  ]
+}
