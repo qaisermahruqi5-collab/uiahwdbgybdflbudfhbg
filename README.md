@@ -34,15 +34,16 @@ Open **`src/config/site.ts`**. Every contact detail on the site comes from this 
 
 ### Text content — one English master + Arabic translations
 
-- **`src/data/content.ts`** — all English text: hero taglines, feature cards, The Academy copy and stats, the six age groups (name, ages, days, winter/summer times, session length), term structure, the full pricing tables, what's included with every place, terms & policies, coaches, news posts and FAQs. Anything that still needs your real information is marked with `TODO(OWNER)` — search the file for `TODO(OWNER)` (currently: the venue name and the seeded news posts).
+- **`src/data/content.ts`** — the marketing copy: hero taglines, feature cards, The Academy copy and stats, age-group names and descriptions, pricing tables, what's included, terms & policies, coaches and FAQs. Anything still needing your information is marked `TODO(OWNER)` (currently just the venue name).
+- **News posts and the training schedule are NOT in this file** — they live in `content/news.json` and `content/schedule.json` and are edited from the dashboard or Telegram. See *Editing news & the calendar* below.
 - **`src/data/content-ar.ts`** — the matching Arabic translations. When you change English text, update the Arabic copy to match (or ask your developer/translator).
 
 ### Prices, days and times
 
 All programme figures live in **`src/data/content.ts`**:
 
-- `PROGRAMS` — one entry per age group (U6 → U16): ages, description, training days, winter slot, summer slot and session length.
-- `TERMS` — the three-term season structure (13 / 7 / 13 weeks, 33 total).
+- `PROGRAMS` — one entry per age group (U6 → U16): ages and description. Its days and times come from `content/schedule.json`, edited from the dashboard or the bot.
+- `TERMS` — read from `content/schedule.json`; edit the term weeks in the dashboard.
 - `PRICE_BANDS` — the fee tables. Prices are grouped into two bands (`u6u8` and `u10u16`); each band has one row for **2 sessions / week** and one for **3 sessions / week**, with each term's upfront price, its monthly instalment, and the Full Season price.
 - `INCLUDED` — the "what every registered player receives" list.
 - `POLICIES` — the terms, payment, cancellation and refund summaries.
@@ -51,7 +52,7 @@ Change a number in one of these arrays and it updates everywhere it appears (pro
 
 ### News posts
 
-`NEWS` in **`src/data/content.ts`** drives the News tab. Each post needs an `id`, an ISO `date` (e.g. `2026-08-10`), a human `dateLabel`, a `category`, a `title` and an `excerpt`. Newest first. Delete the array's contents and the page shows a friendly "no news yet" message instead.
+News is no longer edited in code — see *Editing news & the calendar* below.
 
 ---
 
@@ -91,7 +92,7 @@ Upload **everything inside `dist/`** to your host:
 
 - [ ] **Domain:** replace the placeholder domain in `public/sitemap.xml` and `public/robots.txt`, and set the absolute `og:image` URL in `index.html` (each spot is marked with a `TODO(owner)` comment).
 - [ ] **Content:** fill every `TODO(OWNER)` item in `src/data/content.ts` (and mirror it in `src/data/content-ar.ts`) — currently just the training venue name in the FAQ.
-- [ ] **News:** replace the three seeded posts in `NEWS` with real academy announcements (and their Arabic versions).
+- [ ] **News:** replace the three seeded posts using the dashboard at `/admin/` or the Telegram bot.
 - [ ] **Prices:** confirm the figures in `PRICE_BANDS` still match the current Programme & Pricing Guide before launch.
 - [ ] **Form test:** submit a real test registration and confirm the email arrives in your inbox.
 - [ ] **Spam protection:** enable reCAPTCHA for your key in the Web3Forms dashboard.
