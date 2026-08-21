@@ -72,9 +72,36 @@ $('#signout').addEventListener('click', async () => {
   location.reload();
 });
 
+/** Show a failure on whichever screen is actually visible. The editor's
+    banner lives inside #app, so during sign-in it would render invisibly. */
+function fail(message) {
+  if (!$('#login').hidden) {
+    const err = $('#login-error');
+    err.textContent = message;
+    err.hidden = false;
+  } else {
+    banner(message, true);
+  }
+}
+
 async function start() {
-  const res = await fetch(API.content);
-  if (!res.ok) { banner('Could not load content. Try signing in again.', true); return; }
+  let res;
+  try {
+    res = await fetch(API.content);
+  } catch {
+    fail('Could not reach the server. Check your connection and try again.');
+    return;
+  }
+
+  if (!res.ok) {
+    const detail = (await res.json().catch(() => ({}))).error;
+    fail(
+      res.status === 401
+        ? 'Signed in, but the session was rejected. Check the site is on https:// and cookies are enabled.'
+        : `Signed in, but content could not load (${res.status}). ${detail ?? 'See Netlify > Logs > Functions.'}`
+    );
+    return;
+  }
 
   const data = await res.json();
   state = { news: data.news ?? { items: [] }, schedule: data.schedule ?? { squads: [], terms: [] }, dirty: false };
@@ -376,4 +403,6 @@ function validate() {
 }
 
 /* Already signed in from a previous visit? Skip the login screen. */
-fetch(API.content).then((res) => { if (res.ok) start(); });
+fetch(API.content)
+  .then((res) => { if (res.ok) start(); })
+  .catch(() => undefined);

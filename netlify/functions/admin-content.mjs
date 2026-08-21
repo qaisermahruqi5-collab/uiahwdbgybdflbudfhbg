@@ -91,8 +91,26 @@ export default async function handler(request) {
   if (!hasSession(request)) return json({ error: 'Not signed in' }, 401);
 
   if (request.method === 'GET') {
-    const [news, schedule] = await Promise.all([readJson(NEWS_PATH), readJson(SCHEDULE_PATH)]);
-    return json({ news: news.data, newsSha: news.sha, schedule: schedule.data, scheduleSha: schedule.sha });
+    // Without this the GitHub call rejects unhandled and Netlify returns a bare
+    // 500, which tells the person signing in nothing at all.
+    try {
+      const [news, schedule] = await Promise.all([readJson(NEWS_PATH), readJson(SCHEDULE_PATH)]);
+      if (!news.data || !schedule.data) {
+        return json(
+          { error: `content/*.json not found in ${process.env.GITHUB_REPO ?? 'the configured repo'} on branch main.` },
+          502
+        );
+      }
+      return json({ news: news.data, newsSha: news.sha, schedule: schedule.data, scheduleSha: schedule.sha });
+    } catch (err) {
+      const detail = String(err.message ?? err);
+      const hint = detail.includes(': 401') || detail.includes(': 403')
+        ? 'GITHUB_TOKEN is missing, expired, or lacks Contents: read and write on this repo.'
+        : detail.includes(': 404')
+          ? 'GITHUB_REPO may be wrong, or the token cannot see that repository.'
+          : detail;
+      return json({ error: `Could not read content from GitHub. ${hint}` }, 502);
+    }
   }
 
   if (request.method !== 'PUT') return json({ error: 'Method not allowed' }, 405);
