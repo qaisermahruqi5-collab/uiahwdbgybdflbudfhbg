@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Genoa Academy — Editor</title>
+    <link rel="icon" href="/favicon-32x32.png" />
+    <link rel="stylesheet" href="/admin/style.css" />
+  </head>
+  <body>
+    <!-- ── Sign in ─────────────────────────────────────────────── -->
+    <section id="login" class="login">
+      <form id="login-form" class="panel login-panel" autocomplete="off">
+        <img src="/logo.png" alt="" width="385" height="522" class="login-logo" />
+        <h1>Academy Editor</h1>
+        <p class="muted">Enter the admin passcode to continue.</p>
+        <input
+          id="login-pass"
+          type="password"
+          placeholder="Admin passcode"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" class="btn primary">Sign in</button>
+        <p id="login-error" class="error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <!-- ── Editor ──────────────────────────────────────────────── -->
+    <main id="app" hidden>
+      <header class="topbar">
+        <div class="brand">
+          <img src="/logo.png" alt="" width="385" height="522" />
+          <span>Academy Editor</span>
+        </div>
+        <nav class="tabs">
+          <button class="tab active" data-tab="news">News</button>
+          <button class="tab" data-tab="schedule">Calendar</button>
+        </nav>
+        <div class="topbar-actions">
+          <span id="dirty" class="badge" hidden>Unsaved changes</span>
+          <button id="publish" class="btn primary">Publish</button>
+          <button id="signout" class="btn ghost">Sign out</button>
+        </div>
+      </header>
+
+      <div id="banner" class="banner" role="status" hidden></div>
+
+      <!-- News -->
+      <section id="tab-news" class="tabpanel">
+        <div class="section-head">
+          <h2>News posts</h2>
+          <button id="add-post" class="btn">+ New post</button>
+        </div>
+        <p class="muted">
+          Newest first. Arabic is optional — leave it blank and the English text is shown
+          to Arabic visitors.
+        </p>
+        <div id="posts" class="stack"></div>
+        <p id="posts-empty" class="muted empty" hidden>No posts yet. Add one above.</p>
+      </section>
+
+      <!-- Schedule -->
+      <section id="tab-schedule" class="tabpanel" hidden>
+        <div class="section-head"><h2>Training schedule</h2></div>
+        <p class="muted">
+          Squads are fixed — you can change their days, times and session length.
+          Arabic fields feed the Arabic site.
+        </p>
+        <div id="squads" class="stack"></div>
+
+        <div class="section-head"><h2>Season terms</h2></div>
+        <div id="terms" class="stack"></div>
+      </section>
+    </main>
+
+    <!-- ── Publish confirmation ────────────────────────────────── -->
+    <dialog id="confirm">
+      <form method="dialog" class="panel confirm-panel">
+        <h2>Confirm publish</h2>
+        <p class="muted">
+          Re-enter the admin passcode. Nothing reaches the website without it.
+        </p>
+        <input id="confirm-pass" type="password" placeholder="Admin passcode" autocomplete="current-password" />
+        <p id="confirm-error" class="error" role="alert" hidden></p>
+        <div class="row end">
+          <button value="cancel" class="btn ghost">Cancel</button>
+          <button id="confirm-go" value="go" class="btn primary">Publish to website</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/admin/app.js" type="module"></script>
+  </body>
+</html>

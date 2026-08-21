@@ -137,6 +137,100 @@ Worth running before each deploy.
 
 ---
 
+## EDITING NEWS & THE CALENDAR (no code)
+
+News posts and the training schedule live in `content/news.json` and
+`content/schedule.json`. Two editors write to those files; both commit to
+GitHub, which triggers a Netlify rebuild. **Changes appear on the site about
+1–2 minutes after you publish.** Every edit is a real commit, so anything can
+be reverted from the repo's history.
+
+### The dashboard
+
+Go to **`/admin/`** on your site (e.g. `yoursite.com/admin/`). It is
+`noindex`-ed and not linked from anywhere.
+
+- **News** — add, edit, reorder and delete posts; drag a photo straight onto a
+  post. Photos are resized in your browser before upload, so a 12MP phone
+  picture never travels at full size.
+- **Calendar** — change each squad's days, winter/summer slots and session
+  length, plus the term weeks. Squads cannot be added or removed here; that is
+  a code change, deliberately.
+- Arabic sits beside every English field. **Leave Arabic blank and the English
+  text is shown to Arabic visitors** — nothing breaks.
+- Click **Publish**, then re-enter the admin passcode.
+
+### The Telegram bot
+
+Message your bot. It ignores everyone until they send the admin passcode, then
+unlocks that chat for 12 hours and deletes the passcode message.
+
+| Command | What it does |
+|---|---|
+| `/news` | Guided post: headline → summary → photo → Arabic → preview → `/publish` |
+| `/schedule` | Change one squad's times |
+| `/list` | Show recent posts and their ids |
+| `/delete <id>` | Remove a post |
+| `/who` | Who is signed in right now |
+| `/revoke <id>` | Sign someone out |
+| `/lock` | Sign yourself out |
+| `/cancel` | Abandon the current draft |
+
+Bot photos are JPEG only (converting to WebP would need a native image library
+in the function); the site treats WebP as optional and serves the JPEG. Upload
+through the dashboard instead if you want both formats.
+
+Arabic **times** are mirrored automatically (`PM` → `مساءً`). Arabic **prose**
+is never machine-translated — the bot asks for it, or falls back to English.
+
+### How access works
+
+There is no pre-shared list of allowed Telegram accounts. The bot is publicly
+reachable — bot usernames are searchable — so **the passcode is the gate**:
+
+- Anyone may open a chat, but nothing happens until they send the passcode.
+- A correct passcode unlocks that chat for 12 hours and adds it to the
+  authorised list automatically.
+- Five wrong attempts locks that chat out for an hour.
+- **The passcode is re-checked on every single publish**, in the dashboard and
+  the bot alike, and it is enforced on the server — not just in the interface.
+  A signed-in laptop left open still cannot publish.
+
+**If the passcode leaks, change `ADMIN_PASSWORD` in Netlify and redeploy.**
+That instantly invalidates every unlocked chat and every dashboard session.
+
+### Environment variables
+
+Set in **Netlify → Site configuration → Environment variables**, all scopes:
+
+| Key | Purpose |
+|---|---|
+| `ADMIN_PASSWORD` | The one passcode, for both the dashboard and the bot |
+| `ADMIN_SESSION_SECRET` | Signs session cookies — any long random string |
+| `GITHUB_REPO` | `owner/name` of this repository |
+| `GITHUB_TOKEN` | Fine-grained token, **Contents: read and write**, this repo only |
+| `TELEGRAM_BOT_TOKEN` | From BotFather |
+| `TELEGRAM_WEBHOOK_SECRET` | Long random string, also given to Telegram below |
+
+### Registering the Telegram webhook
+
+Do this **once**, after the site has deployed. Replace both placeholders:
+
+```bash
+curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" -H "Content-Type: application/json" -d "{\"url\":\"https://<YOUR_SITE>/api/telegram\",\"secret_token\":\"<YOUR_TELEGRAM_WEBHOOK_SECRET>\",\"allowed_updates\":[\"message\"]}"
+```
+
+Check it took:
+
+```bash
+curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
+```
+
+`pending_update_count` should be 0 and `last_error_message` absent. Then send
+your bot any message — it should ask for the passcode.
+
+---
+
 ## TECH NOTES
 
 - **HashRouter** is used (`/#/about`-style URLs) so the site works on any static host with **zero configuration**. If you later want cleaner URLs and better SEO, switch to BrowserRouter and add rewrite rules on your host — a small developer task.

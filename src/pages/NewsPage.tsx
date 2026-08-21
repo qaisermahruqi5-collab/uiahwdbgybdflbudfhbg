@@ -116,7 +116,9 @@ export default function NewsPage() {
                         style={{ clipPath: 'polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%)' }}
                       >
                         <picture>
-                          <source srcSet={item.image.webp} type="image/webp" />
+                          {item.image.webp && (
+                            <source srcSet={item.image.webp} type="image/webp" />
+                          )}
                           <img
                             src={item.image.jpg}
                             alt={(lang === 'ar' && item.image.altAr) || item.image.alt}

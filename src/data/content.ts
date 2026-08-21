@@ -349,7 +349,8 @@ export const COACHES: Coach[] = [
 
 /** Optional photo on a news post. Files live in public/uploads/. */
 export interface NewsImage {
-  webp: string;
+  /** Optional: Telegram uploads arrive as JPEG only, with no WebP twin. */
+  webp?: string;
   jpg: string;
   width: number;
   height: number;
