@@ -1,39 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- TODO(owner): replace the placeholder domain https://www.genoaacademyoman.com/ with the real production domain once known -->
+<!--
+  Only the home page is listed, and that is deliberate.
+
+  The site uses HashRouter, so every route is a fragment: /#/about, /#/programs
+  and so on. Search engines ignore the part after '#', which means all routes
+  resolve to this single URL. Listing /about, /programs etc. here would
+  advertise URLs that do not exist — they would 404, because nothing rewrites
+  them to index.html.
+
+  To get one indexable URL per page, switch src/main.tsx from HashRouter to
+  BrowserRouter and add a SPA rewrite to netlify.toml:
+
+      [[redirects]]
+        from = "/*"
+        to = "/index.html"
+        status = 200
+
+  Then, and only then, list the individual routes below.
+-->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://www.genoaacademyoman.com/</loc>
+    <loc>https://www.genoaacademyom.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://www.genoaacademyoman.com/about</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.genoaacademyoman.com/programs</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://www.genoaacademyoman.com/news</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://www.genoaacademyoman.com/calendar</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://www.genoaacademyoman.com/join</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://www.genoaacademyoman.com/privacy</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
   </url>
 </urlset>

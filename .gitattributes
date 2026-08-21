@@ -1,0 +1,17 @@
+# Pin text files to LF in the repository.
+#
+# This is not cosmetic. netlify.toml pins the inline JSON-LD block in
+# index.html with a CSP sha256 hash, and that hash is computed over the exact
+# bytes — including newlines. An editor or script that rewrites index.html with
+# CRLF changes the hash without changing a single visible character, and the
+# browser then silently refuses to read your structured data.
+* text=auto eol=lf
+
+# Binary assets must never be touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.mp4 binary
+*.woff binary
+*.woff2 binary

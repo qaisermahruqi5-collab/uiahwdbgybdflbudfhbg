@@ -12,7 +12,13 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const html = await readFile(join(root, 'index.html'), 'utf8');
+
+// Normalise CRLF to LF before hashing. Git stores index.html with LF (see
+// .gitattributes), so the bytes Netlify actually serves use LF. Hashing a CRLF
+// working copy prints a hash that is wrong in production, and the only symptom
+// is your structured data silently vanishing from search results.
+const raw = await readFile(join(root, 'index.html'), 'utf8');
+const html = raw.split('\r\n').join('\n');
 
 const hashes = [];
 for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) {

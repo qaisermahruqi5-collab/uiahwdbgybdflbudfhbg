@@ -3,5 +3,4 @@ Allow: /
 Disallow: /admin/
 Disallow: /api/
 
-# TODO(owner): replace the placeholder domain below with the production domain
-Sitemap: https://www.genoaacademyoman.com/sitemap.xml
+Sitemap: https://www.genoaacademyom.com/sitemap.xml
