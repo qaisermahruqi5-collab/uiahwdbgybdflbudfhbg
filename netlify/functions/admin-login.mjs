@@ -2,6 +2,16 @@
 // The session only grants VIEWING. Every write re-checks the passcode.
 
 import { passcodeMatches, createSessionToken, sessionCookieHeader, clearedCookieHeader, json } from './lib/auth.mjs';
+import { checkLockout, recordFailure, clearFailures } from './lib/store.mjs';
+
+/** Netlify puts the real client IP here; the rest are fallbacks. */
+function clientKey(request) {
+  const ip =
+    request.headers.get('x-nf-client-connection-ip') ||
+    (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() ||
+    'unknown';
+  return `login:${ip}`;
+}
 
 export default async function handler(request) {
   if (request.method === 'DELETE') {
@@ -37,12 +47,32 @@ export default async function handler(request) {
     );
   }
 
+  // This endpoint is public, so it needs the same brute-force ceiling as the
+  // bot. Without it, a short passcode is guessable at request speed.
+  const key = clientKey(request);
+  const lockout = await checkLockout(key);
+  if (lockout.lockedOut) {
+    return json(
+      { error: `Too many incorrect attempts. Try again in ${lockout.minutes} minute(s).` },
+      429
+    );
+  }
+
   if (!passcodeMatches(body?.passcode)) {
     // Deliberately slow + vague: no hint about whether the passcode was close.
     await new Promise(r => setTimeout(r, 600));
-    return json({ error: 'Incorrect passcode' }, 401);
+    const after = await recordFailure(key);
+    return json(
+      {
+        error: after.lockedOut
+          ? 'Too many incorrect attempts. Locked for 1 hour.'
+          : `Incorrect passcode. ${after.remaining} attempt(s) left.`,
+      },
+      401
+    );
   }
 
+  await clearFailures(key);
   return json({ ok: true }, 200, { 'Set-Cookie': sessionCookieHeader(createSessionToken()) });
 }
 

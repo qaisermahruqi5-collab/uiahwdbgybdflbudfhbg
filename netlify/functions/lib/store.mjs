@@ -22,7 +22,12 @@ async function readJson(key, fallback) {
 }
 
 async function writeJson(key, value) {
-  await store().setJSON(key, value);
+  try {
+    await store().setJSON(key, value);
+  } catch {
+    /* Storage unavailable. Callers treat this as "no record kept" rather than
+       failing the request — a blob outage must not lock the owner out. */
+  }
 }
 
 /* ── Telegram: who is currently unlocked ──────────────────────────
@@ -58,15 +63,16 @@ export async function listUnlocked() {
 }
 
 /* ── Brute-force guard ────────────────────────────────────────────
-   The bot is publicly reachable, so wrong passcodes are rate limited
-   per chat: 5 tries, then a one-hour cooldown.                      */
+   Shared by the Telegram bot (keyed by chat id) and the dashboard
+   login (keyed by client IP). Both are publicly reachable, so both
+   need it: 5 wrong tries, then a one-hour cooldown.                 */
 
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 const LOCKOUT_MS = 60 * 60 * 1000;
 
 export async function checkLockout(chatId) {
-  const all = await readJson('tg-attempts', {});
+  const all = await readJson('auth-attempts', {});
   const entry = all[String(chatId)];
   if (!entry) return { lockedOut: false, remaining: MAX_ATTEMPTS };
   if (entry.lockedUntil && entry.lockedUntil > Date.now()) {
@@ -77,7 +83,7 @@ export async function checkLockout(chatId) {
 }
 
 export async function recordFailure(chatId) {
-  const all = await readJson('tg-attempts', {});
+  const all = await readJson('auth-attempts', {});
   const key = String(chatId);
   const entry = all[key] ?? {};
   const withinWindow = entry.first && Date.now() - entry.first < WINDOW_MS;
@@ -86,14 +92,14 @@ export async function recordFailure(chatId) {
   const first = withinWindow ? entry.first : Date.now();
   all[key] = { count, first, ...(count >= MAX_ATTEMPTS ? { lockedUntil: Date.now() + LOCKOUT_MS } : {}) };
 
-  await writeJson('tg-attempts', all);
+  await writeJson('auth-attempts', all);
   return { lockedOut: count >= MAX_ATTEMPTS, remaining: Math.max(0, MAX_ATTEMPTS - count) };
 }
 
 export async function clearFailures(chatId) {
-  const all = await readJson('tg-attempts', {});
+  const all = await readJson('auth-attempts', {});
   delete all[String(chatId)];
-  await writeJson('tg-attempts', all);
+  await writeJson('auth-attempts', all);
 }
 
 /* ── Telegram: in-progress draft for one chat ─────────────────── */
