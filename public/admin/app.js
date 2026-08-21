@@ -15,7 +15,31 @@ const API = {
   upload: '/api/admin/upload',
 };
 
+/* Last-resort reporting. Without this, a module-level throw leaves the page
+   looking alive but with no event handlers attached — you press Sign in and
+   absolutely nothing happens, with nothing in the UI to explain it. */
+function showFatal(what) {
+  const box = document.getElementById('login-error') || document.body;
+  box.hidden = false;
+  box.textContent = `Editor error: ${what}. Hard-refresh the page; if it repeats, send this message on.`;
+}
+addEventListener('error', (e) => showFatal(e.message || 'script failed to load'));
+addEventListener('unhandledrejection', (e) => showFatal(String(e.reason?.message ?? e.reason ?? 'request failed')));
+
 const $ = (sel) => document.querySelector(sel);
+
+/* Proof-of-life. If the login screen shows no build stamp, this file did not
+   execute — which is a different problem from any error message below it. */
+const BUILD = 'editor build 6';
+document.addEventListener('DOMContentLoaded', () => {
+  const stamp = document.getElementById('build-stamp');
+  if (stamp) stamp.textContent = BUILD;
+});
+if (document.readyState !== 'loading') {
+  const stamp = document.getElementById('build-stamp');
+  if (stamp) stamp.textContent = BUILD;
+}
+
 const el = (tag, props = {}, kids = []) => {
   const node = Object.assign(document.createElement(tag), props);
   for (const kid of [].concat(kids)) node.append(kid);
@@ -51,14 +75,31 @@ $('#login-form').addEventListener('submit', async (e) => {
   const err = $('#login-error');
   err.hidden = true;
 
-  const res = await fetch(API.login, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ passcode: $('#login-pass').value }),
-  });
+  let res;
+  try {
+    res = await fetch(API.login, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode: $('#login-pass').value }),
+    });
+  } catch (netErr) {
+    err.textContent = `Could not reach the sign-in service (${netErr.message}). Check the site finished deploying.`;
+    err.hidden = false;
+    return;
+  }
 
   if (!res.ok) {
-    err.textContent = (await res.json().catch(() => ({}))).error ?? 'Sign in failed';
+    const body = await res.text().catch(() => '');
+    let detail;
+    try {
+      detail = JSON.parse(body).error;
+    } catch {
+      // Not JSON: usually a 404 HTML page, i.e. the function is not deployed.
+      detail = res.status === 404
+        ? 'The sign-in function is not deployed. Check Netlify > Deploys succeeded, and that netlify.toml has a [functions] directory.'
+        : `Server returned ${res.status}.`;
+    }
+    err.textContent = detail ?? 'Sign in failed';
     err.hidden = false;
     return;
   }
@@ -106,10 +147,16 @@ async function start() {
   const data = await res.json();
   state = { news: data.news ?? { items: [] }, schedule: data.schedule ?? { squads: [], terms: [] }, dirty: false };
 
+  try {
+    renderNews();
+    renderSchedule();
+  } catch (renderErr) {
+    fail(`Loaded your content but could not draw it: ${renderErr.message}`);
+    return;
+  }
+
   $('#login').hidden = true;
   $('#app').hidden = false;
-  renderNews();
-  renderSchedule();
 }
 
 /* ── Tabs ─────────────────────────────────────────────────────── */
