@@ -32,7 +32,7 @@ const $ = (sel) => document.querySelector(sel);
 
 /* Proof-of-life. If the login screen shows no build stamp, this file did not
    execute — which is a different problem from any error message below it. */
-const BUILD = 'editor build 8';
+const BUILD = 'editor build 9';
 document.addEventListener('DOMContentLoaded', () => {
   const stamp = document.getElementById('build-stamp');
   if (stamp) stamp.textContent = BUILD;
@@ -55,7 +55,24 @@ async function reportSetup() {
   } catch {
     return; // Offline or blocked. The sign-in attempt will report it.
   }
-  if (!info || info.canSignIn) return;
+  if (!info) return;
+
+  // Sign-in is possible, but the stored passcode looks mis-pasted. Warn
+  // without blocking — the passcode may genuinely contain those characters.
+  if (info.canSignIn) {
+    const fmt = info.passcodeFormat ?? {};
+    if (fmt.hasSurroundingWhitespace || fmt.isWrappedInQuotes) {
+      const err = $("#login-error");
+      err.textContent =
+        "Heads up: ADMIN_PASSWORD in Netlify " +
+        (fmt.isWrappedInQuotes
+          ? "is wrapped in quote marks, which are part of the value."
+          : "starts or ends with a space, which is part of the value.") +
+        " If sign-in keeps failing, retype it in Netlify without them and redeploy.";
+      err.hidden = false;
+    }
+    return;
+  }
 
   const missing = info.missing?.signIn ?? [];
   const plural = missing.length > 1;
@@ -101,10 +118,37 @@ addEventListener('beforeunload', (e) => {
 
 /* ── Sign in ──────────────────────────────────────────────────── */
 
+/* A sign-in can take several seconds: Netlify cold-starts the function, and
+   phone networks are slow. The old handler showed NOTHING while it waited —
+   no spinner, no disabled button, no text — so pressing Sign in looked like
+   pressing a dead button. People then pressed it again, and every press was
+   another POST spending another of the five attempts.
+
+   So: show the wait, refuse to run twice at once, and never wait forever. */
+const SIGN_IN_TIMEOUT_MS = 25000;
+let signingIn = false;
+
 $('#login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (signingIn) return; // A press while one is already in flight is a no-op.
+
   const err = $('#login-error');
+  const button = $('#login-form button[type=submit]');
+  const label = button ? button.textContent : '';
   err.hidden = true;
+
+  signingIn = true;
+  if (button) { button.disabled = true; button.textContent = 'Signing in…'; }
+
+  // A hung connection must not leave the button stuck on 'Signing in…'.
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), SIGN_IN_TIMEOUT_MS);
+
+  const done = () => {
+    clearTimeout(timer);
+    signingIn = false;
+    if (button) { button.disabled = false; button.textContent = label; }
+  };
 
   let res;
   try {
@@ -112,14 +156,22 @@ $('#login-form').addEventListener('submit', async (e) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ passcode: $('#login-pass').value }),
+      signal: abort.signal,
     });
   } catch (netErr) {
-    err.textContent = `Could not reach the sign-in service (${netErr.message}). Check the site finished deploying.`;
+    done();
+    err.textContent =
+      netErr.name === 'AbortError'
+        ? `The server did not answer within ${SIGN_IN_TIMEOUT_MS / 1000} seconds. ` +
+          'Check your connection, then try once more — do not press repeatedly, ' +
+          'as each press uses one of five attempts.'
+        : `Could not reach the sign-in service (${netErr.message}). Check the site finished deploying.`;
     err.hidden = false;
     return;
   }
 
   if (!res.ok) {
+    done();
     const body = await res.text().catch(() => '');
     let detail;
     try {
@@ -134,8 +186,13 @@ $('#login-form').addEventListener('submit', async (e) => {
     err.hidden = false;
     return;
   }
+
   $('#login-pass').value = '';
-  await start();
+  try {
+    await start();
+  } finally {
+    done();
+  }
 });
 
 $('#signout').addEventListener('click', async () => {

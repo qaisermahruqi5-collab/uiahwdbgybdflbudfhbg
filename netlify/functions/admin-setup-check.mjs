@@ -25,11 +25,32 @@ export default async function handler(request) {
   const content = missingFrom(CONTENT_ENV);
   const bot = missingFrom(BOT_ENV);
 
+  /*
+   * The classic Netlify paste error: the value goes in as `"passcode"` with
+   * the quotes, or with a trailing space picked up from a copy. Both compare
+   * as wrong forever while looking perfectly correct in the dashboard.
+   *
+   * These are booleans about the SHAPE of the value, never the value. They
+   * narrow nothing for a guesser who does not already know the passcode,
+   * and they are the difference between fixing this in a minute and losing
+   * another evening to it.
+   */
+  const raw = process.env.ADMIN_PASSWORD ?? '';
+  const looksMisPasted = {
+    hasSurroundingWhitespace: raw !== raw.trim(),
+    isWrappedInQuotes: /^(".*"|'.*')$/.test(raw.trim()) && raw.trim().length > 1,
+  };
+
   return json({
     // Can anyone sign in at all? This is the one that blocks the front door.
     canSignIn: signIn.length === 0,
     missing: { signIn, content, bot },
-    ready: signIn.length === 0 && content.length === 0,
+    passcodeFormat: looksMisPasted,
+    ready:
+      signIn.length === 0 &&
+      content.length === 0 &&
+      !looksMisPasted.hasSurroundingWhitespace &&
+      !looksMisPasted.isWrappedInQuotes,
   });
 }
 
