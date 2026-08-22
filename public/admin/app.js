@@ -12,6 +12,7 @@
 const API = {
   login: '/api/admin/login',
   content: '/api/admin/content',
+  telegram: '/api/admin/telegram',
   upload: '/api/admin/upload',
 };
 
@@ -166,6 +167,8 @@ for (const tab of document.querySelectorAll('.tab')) {
     document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
     $('#tab-news').hidden = tab.dataset.tab !== 'news';
     $('#tab-schedule').hidden = tab.dataset.tab !== 'schedule';
+    $('#tab-bot').hidden = tab.dataset.tab !== 'bot';
+    if (tab.dataset.tab === 'bot') refreshBot();
   });
 }
 
@@ -389,24 +392,103 @@ function renderSchedule() {
   }
 }
 
+/* ── Telegram ─────────────────────────────────────────────────── */
+
+async function refreshBot() {
+  const out = $('#bot-status');
+  out.textContent = 'Checking…';
+  try {
+    const res = await fetch(API.telegram);
+    const body = await res.json();
+    if (!res.ok) { out.textContent = body.error ?? 'Could not check the bot.'; return; }
+
+    const lines = [body.connected ? '✅ Connected.' : '⚠️ Not connected yet.'];
+    lines.push(`Messages should be delivered to ${body.expectedUrl}`);
+    if (body.info?.url && body.info.url !== body.expectedUrl && body.info.url !== '') {
+      lines.push(`Telegram currently points at: ${body.info.url}`);
+    }
+    if (body.info?.lastErrorMessage) {
+      lines.push(`Last error from Telegram: ${body.info.lastErrorMessage}`);
+    }
+    if (body.info?.pendingUpdateCount) {
+      lines.push(`${body.info.pendingUpdateCount} message(s) waiting.`);
+    }
+    out.textContent = lines.join('  ');
+  } catch (err) {
+    out.textContent = `Could not check the bot: ${err.message}`;
+  }
+}
+
+$('#bot-refresh').addEventListener('click', refreshBot);
+
+$('#bot-connect').addEventListener('click', async () => {
+  const passcode = await askPasscode('This points your Telegram bot at this website.');
+  if (!passcode) return;
+
+  $('#bot-connect').disabled = true;
+  banner('Connecting the bot…');
+  try {
+    const res = await fetch(API.telegram, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passcode }),
+    });
+    const body = await res.json();
+    if (!res.ok) banner(body.error ?? 'Could not connect the bot.', true);
+    else banner('Bot connected. Send it a message — it should ask for the passcode.');
+    await refreshBot();
+  } catch (err) {
+    banner(`Could not connect the bot: ${err.message}`, true);
+  } finally {
+    $('#bot-connect').disabled = false;
+  }
+});
+
 /* ── Publish ──────────────────────────────────────────────────── */
 
+/**
+ * Ask for the passcode and resolve with it, or null if cancelled.
+ *
+ * This drives the buttons directly rather than relying on <form method="dialog">
+ * and the dialog 'close' event. That pattern is subtly inconsistent — the
+ * dialog can end up closed without ever emitting 'close', which leaves the
+ * caller awaiting a promise that never settles and makes Publish, photo upload
+ * and bot setup all appear to do nothing at all.
+ */
 function askPasscode(reason) {
   return new Promise((resolve) => {
     const dialog = $('#confirm');
     const input = $('#confirm-pass');
     const error = $('#confirm-error');
+    const go = $('#confirm-go');
+    const cancel = $('#confirm-cancel');
 
     error.hidden = true;
     input.value = '';
     dialog.querySelector('.muted').textContent =
       `${reason} Re-enter the admin passcode — nothing reaches the website without it.`;
 
-    dialog.addEventListener(
-      'close',
-      () => resolve(dialog.returnValue === 'go' ? input.value : null),
-      { once: true }
-    );
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      go.removeEventListener('click', onGo);
+      cancel.removeEventListener('click', onCancel);
+      dialog.removeEventListener('cancel', onCancel);
+      input.removeEventListener('keydown', onKey);
+      if (dialog.open) dialog.close();
+      resolve(value);
+    };
+
+    function onGo(e) { e.preventDefault(); finish(input.value); }
+    function onCancel(e) { e.preventDefault(); finish(null); }
+    function onKey(e) { if (e.key === 'Enter') { e.preventDefault(); finish(input.value); } }
+
+    go.addEventListener('click', onGo);
+    cancel.addEventListener('click', onCancel);
+    dialog.addEventListener('cancel', onCancel); // Esc key
+    input.addEventListener('keydown', onKey);
+
     dialog.showModal();
     input.focus();
   });

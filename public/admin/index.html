@@ -39,6 +39,7 @@
         <nav class="tabs">
           <button class="tab active" data-tab="news">News</button>
           <button class="tab" data-tab="schedule">Calendar</button>
+          <button class="tab" data-tab="bot">Bot</button>
         </nav>
         <div class="topbar-actions">
           <span id="dirty" class="badge" hidden>Unsaved changes</span>
@@ -75,11 +76,32 @@
         <div class="section-head"><h2>Season terms</h2></div>
         <div id="terms" class="stack"></div>
       </section>
+
+      <!-- Telegram -->
+      <section id="tab-bot" class="tabpanel" hidden>
+        <div class="section-head"><h2>Telegram bot</h2></div>
+        <p class="muted">
+          Connecting tells Telegram where to deliver messages. You only need to do
+          this once, or again if your website address changes.
+        </p>
+        <div class="stack">
+          <div class="card">
+            <div class="card-head">
+              <span class="card-title">Status</span>
+              <button id="bot-refresh" class="btn ghost">Refresh</button>
+            </div>
+            <p id="bot-status" class="muted">Checking…</p>
+            <div class="row">
+              <button id="bot-connect" class="btn primary">Connect bot</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <!-- ── Publish confirmation ────────────────────────────────── -->
     <dialog id="confirm">
-      <form method="dialog" class="panel confirm-panel">
+      <div class="panel confirm-panel">
         <h2>Confirm publish</h2>
         <p class="muted">
           Re-enter the admin passcode. Nothing reaches the website without it.
@@ -87,10 +109,10 @@
         <input id="confirm-pass" type="password" placeholder="Admin passcode" autocomplete="current-password" />
         <p id="confirm-error" class="error" role="alert" hidden></p>
         <div class="row end">
-          <button value="cancel" class="btn ghost">Cancel</button>
-          <button id="confirm-go" value="go" class="btn primary">Publish to website</button>
+          <button type="button" id="confirm-cancel" class="btn ghost">Cancel</button>
+          <button type="button" id="confirm-go" class="btn primary">Confirm</button>
         </div>
-      </form>
+      </div>
     </dialog>
 
     <script src="/admin/app.js" type="module"></script>
