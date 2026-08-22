@@ -83,24 +83,31 @@
 
     <p id="flash" class="flash" role="status" hidden></p>
 
-    <!-- Publish confirmation -->
-    <dialog id="sheet" class="sheet">
-      <form method="dialog" class="sheet-in">
-        <h2>Confirm publish</h2>
-        <p>Re-enter the admin passcode. Nothing reaches the website without it.</p>
-        <p id="sheet-warn" class="warn" role="alert" hidden></p>
+    <!--
+      Passcode prompt.
+
+      NOT a <dialog>. The close event proved unreliable: the element closes
+      but nothing is notified, so anything awaiting that event waits forever.
+      A previous version of this dashboard shipped exactly that bug. Here the
+      buttons resolve the promise themselves, so nothing depends on the
+      element reporting its own state.
+    -->
+    <div id="ask" class="ask" hidden>
+      <div class="ask-panel" role="dialog" aria-modal="true" aria-labelledby="ask-title">
+        <h2 id="ask-title">Confirm publish</h2>
+        <p id="ask-why">Re-enter the admin passcode. Nothing reaches the website without it.</p>
         <input
-          id="sheet-pass"
+          id="ask-pass"
           type="password"
           placeholder="Admin passcode"
           autocomplete="current-password"
         />
         <div class="row-end">
-          <button value="cancel" class="btn btn-quiet">Cancel</button>
-          <button id="sheet-go" value="go" class="btn btn-go">Publish</button>
+          <button type="button" id="ask-no" class="btn btn-quiet">Cancel</button>
+          <button type="button" id="ask-yes" class="btn btn-go">Confirm</button>
         </div>
-      </form>
-    </dialog>
+      </div>
+    </div>
 
     <script src="/studio/desk.js" type="module"></script>
   </body>

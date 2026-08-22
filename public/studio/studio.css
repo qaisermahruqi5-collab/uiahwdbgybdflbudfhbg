@@ -443,26 +443,40 @@ body {
 .dot.on  { background: var(--green); box-shadow: 0 0 0 3px rgb(53 201 139 / 0.2); }
 .dot.off { background: var(--red);   box-shadow: 0 0 0 3px rgb(226 55 74 / 0.2); }
 
-/* Publish dialog */
+/* Passcode prompt.
 
-dialog.sheet {
+   A plain overlay rather than <dialog>: the close event could not be
+   relied on, and the promise waiting for it never returned. Styled to
+   read as modal, driven entirely by our own handlers. */
+
+.ask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(6 9 14 / 0.72);
+}
+
+.ask[hidden] { display: none; }
+
+.ask-panel {
+  width: 100%;
+  max-width: 430px;
+  padding: 26px;
+  display: grid;
+  gap: 14px;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
-  padding: 0;
-  max-width: 430px;
-  width: calc(100vw - 40px);
   box-shadow: var(--shadow-lift);
 }
 
-dialog.sheet::backdrop { background: rgb(6 9 14 / 0.72); }
+.ask-panel h2 { margin: 0; font-size: 20px; font-weight: 750; letter-spacing: -0.02em; }
+.ask-panel p { margin: 0; color: var(--text-dim); font-size: 13.5px; }
 
-.sheet-in { padding: 26px; display: grid; gap: 14px; }
-.sheet-in h2 { margin: 0; font-size: 20px; font-weight: 750; letter-spacing: -0.02em; }
-.sheet-in p { margin: 0; color: var(--text-dim); font-size: 13.5px; }
-
-.sheet-in input {
+.ask-panel input {
   padding: 11px 13px;
   background: var(--ink);
   border: 1px solid var(--line);
@@ -470,7 +484,7 @@ dialog.sheet::backdrop { background: rgb(6 9 14 / 0.72); }
   color: var(--text);
 }
 
-.sheet-in input:focus {
+.ask-panel input:focus {
   outline: none;
   border-color: var(--red);
   box-shadow: 0 0 0 3px rgb(226 55 74 / 0.14);

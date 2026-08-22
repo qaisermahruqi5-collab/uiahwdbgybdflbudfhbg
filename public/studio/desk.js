@@ -547,28 +547,52 @@ $('#bot-link').addEventListener('click', async () => {
 
 /* ── Passcode sheet ───────────────────────────────────────────────── */
 
-/** Resolves to the typed passcode, or '' if the person cancelled. */
+/**
+ * Resolves to the typed passcode, or the empty string if cancelled.
+ *
+ * Every exit resolves the promise from its own handler. Nothing here waits
+ * on the element to announce that it closed, because that announcement is
+ * exactly what cannot be relied on — a <dialog> here closes without ever
+ * firing `close`, and an await on that event never returns.
+ */
 function askPasscode(why) {
   return new Promise((resolve) => {
-    const sheet = $('#sheet');
-    const pass = $('#sheet-pass');
-    const warn = $('#sheet-warn');
+    const box = $("#ask");
+    const pass = $("#ask-pass");
+    const yes = $("#ask-yes");
+    const no = $("#ask-no");
 
-    warn.hidden = true;
-    pass.value = '';
-    sheet.querySelector('p').textContent = why;
-
-    // `close` always fires, however the dialog is dismissed — including Esc
-    // and the backdrop. Resolving here is what keeps this promise from
-    // hanging, which is the bug this pattern replaced.
-    sheet.addEventListener(
-      'close',
-      () => resolve(sheet.returnValue === 'go' ? pass.value : ''),
-      { once: true }
-    );
-
-    sheet.showModal();
+    $("#ask-why").textContent = why;
+    pass.value = "";
+    box.hidden = false;
     pass.focus();
+
+    let settled = false;
+
+    const finish = (value) => {
+      if (settled) return; // Belt and braces: resolve exactly once.
+      settled = true;
+      box.hidden = true;
+      pass.value = "";
+      yes.removeEventListener("click", onYes);
+      no.removeEventListener("click", onNo);
+      box.removeEventListener("mousedown", onBackdrop);
+      document.removeEventListener("keydown", onKey, true);
+      resolve(value);
+    };
+
+    const onYes = () => finish(pass.value);
+    const onNo = () => finish("");
+    const onBackdrop = (e) => { if (e.target === box) finish(""); };
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); finish(""); }
+      if (e.key === "Enter" && document.activeElement === pass) { e.preventDefault(); finish(pass.value); }
+    };
+
+    yes.addEventListener("click", onYes);
+    no.addEventListener("click", onNo);
+    box.addEventListener("mousedown", onBackdrop);
+    document.addEventListener("keydown", onKey, true);
   });
 }
 
