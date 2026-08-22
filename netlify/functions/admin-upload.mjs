@@ -3,7 +3,7 @@
 // public paths. Resizing happens in the browser (canvas), so this function
 // needs no native image dependencies.
 
-import { hasSession, passcodeMatches, json } from './lib/auth.mjs';
+import { hasSession, passcodeMatches, json, authConfigError } from './lib/auth.mjs';
 import { writeFile, UPLOAD_DIR } from './lib/github.mjs';
 import { randomBytes } from 'node:crypto';
 
@@ -25,6 +25,9 @@ function safeSlug(name) {
 }
 
 export default async function handler(request) {
+  const notConfigured = authConfigError();
+  if (notConfigured) return notConfigured;
+
   if (!hasSession(request)) return json({ error: 'Not signed in' }, 401);
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 

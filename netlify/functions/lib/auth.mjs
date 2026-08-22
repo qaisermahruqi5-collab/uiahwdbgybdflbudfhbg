@@ -14,6 +14,47 @@ export function requireEnv(name) {
   return value;
 }
 
+/* ── Configuration guard ──────────────────────────────────
+   These two variables are what make any sign-in possible at all. When
+   one is missing the old behaviour was actively misleading: an unset
+   ADMIN_PASSWORD made every correct passcode come back as "Incorrect
+   passcode", burning the five attempts and then locking the owner out
+   for an hour — over a passcode that was never the problem. An unset
+   ADMIN_SESSION_SECRET threw, and Netlify turned that into a bare 500.
+
+   Check up front instead, and name the missing variable. The NAMES are
+   not secrets; the values are never read out.                        */
+
+const AUTH_ENV = ['ADMIN_PASSWORD', 'ADMIN_SESSION_SECRET'];
+
+export function missingAuthConfig() {
+  return AUTH_ENV.filter((name) => !process.env[name]);
+}
+
+/**
+ * A ready-to-return 503 when sign-in cannot work at all, or undefined when
+ * the configuration is complete. Call this FIRST in every handler that
+ * touches a session or a passcode.
+ */
+export function authConfigError() {
+  const missing = missingAuthConfig();
+  if (missing.length === 0) return undefined;
+
+  const plural = missing.length > 1;
+  return json(
+    {
+      error:
+        `This site is not finished being set up: ${missing.join(' and ')} ` +
+        `${plural ? 'are' : 'is'} not set on the server. In Netlify open ` +
+        'Site configuration > Environment variables, add ' +
+        `${plural ? 'them' : 'it'} with the scope set to "All scopes", then ` +
+        'redeploy the site. This is NOT a wrong passcode — no passcode can ' +
+        'work until this is done, so retrying will not help.',
+    },
+    503
+  );
+}
+
 /**
  * Constant-time passcode comparison. A plain `===` leaks the length of the
  * matching prefix through timing, which is exactly what a brute-forcer
@@ -80,9 +121,15 @@ export function readCookie(request, name) {
   return undefined;
 }
 
-/** True when the caller holds a valid dashboard session. */
+/** True when the caller holds a valid dashboard session.
+ *  Never throws: handlers report a missing secret through authConfigError(),
+ *  so this must not turn one into an unexplained 500. */
 export function hasSession(request) {
-  return sessionIsValid(readCookie(request, SESSION_COOKIE));
+  try {
+    return sessionIsValid(readCookie(request, SESSION_COOKIE));
+  } catch {
+    return false;
+  }
 }
 
 export function json(body, status = 200, extraHeaders = {}) {

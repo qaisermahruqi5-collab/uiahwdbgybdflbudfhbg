@@ -1,7 +1,7 @@
 // POST { passcode } -> sets a signed, HttpOnly session cookie.
 // The session only grants VIEWING. Every write re-checks the passcode.
 
-import { passcodeMatches, createSessionToken, sessionCookieHeader, clearedCookieHeader, json } from './lib/auth.mjs';
+import { passcodeMatches, createSessionToken, sessionCookieHeader, clearedCookieHeader, json, authConfigError } from './lib/auth.mjs';
 import { checkLockout, recordFailure, clearFailures } from './lib/store.mjs';
 
 /** Netlify puts the real client IP here; the rest are fallbacks. */
@@ -46,6 +46,15 @@ export default async function handler(request) {
       400
     );
   }
+
+  /*
+   * Before anything else: if the passcode or the signing secret was never
+   * set, no passcode on earth can match. Say that plainly rather than
+   * answering "Incorrect passcode" and spending one of the five attempts on
+   * a fault that belongs to the server.
+   */
+  const notConfigured = authConfigError();
+  if (notConfigured) return notConfigured;
 
   // This endpoint is public, so it needs the same brute-force ceiling as the
   // bot. Without it, a short passcode is guessable at request speed.

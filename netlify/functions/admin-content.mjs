@@ -4,7 +4,14 @@
 // Re-asking for the passcode on every save is deliberate: a walked-away
 // laptop with a live session still cannot publish to the website.
 
-import { hasSession, passcodeMatches, json } from './lib/auth.mjs';
+import { hasSession, passcodeMatches, json, authConfigError } from './lib/auth.mjs';
+
+const GITHUB_ENV = ['GITHUB_REPO', 'GITHUB_TOKEN'];
+
+/** Missing GitHub settings, named — the editor cannot load content without them. */
+function missingGithubConfig() {
+  return GITHUB_ENV.filter((name) => !process.env[name]);
+}
 import { readJson, writeJson, diagnoseAccess, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -93,9 +100,26 @@ function sanitiseSchedule(payload, current) {
 }
 
 export default async function handler(request) {
+  const notConfigured = authConfigError();
+  if (notConfigured) return notConfigured;
+
   if (!hasSession(request)) return json({ error: 'Not signed in' }, 401);
 
   if (request.method === 'GET') {
+    const missingGithub = missingGithubConfig();
+    if (missingGithub.length > 0) {
+      return json(
+        {
+          error:
+            `Signed in, but ${missingGithub.join(' and ')} ` +
+            `${missingGithub.length > 1 ? 'are' : 'is'} not set on the server, so the ` +
+            'editor cannot read your news and schedule. Add them in Netlify under ' +
+            'Site configuration > Environment variables, then redeploy.',
+        },
+        503
+      );
+    }
+
     // Without this the GitHub call rejects unhandled and Netlify returns a bare
     // 500, which tells the person signing in nothing at all.
     try {

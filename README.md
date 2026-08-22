@@ -213,6 +213,30 @@ Set in **Netlify → Site configuration → Environment variables**, all scopes:
 | `TELEGRAM_BOT_TOKEN` | From BotFather |
 | `TELEGRAM_WEBHOOK_SECRET` | Long random string, also given to Telegram below |
 
+### If you cannot sign in to `/admin/`
+
+The sign-in screen now tells you which of these it is. Read the red message
+under the passcode box before changing anything.
+
+| What the screen says | What is actually wrong |
+|---|---|
+| *"This site is not finished being set up: … is not set on the server"* | That environment variable is missing in Netlify. Add it (**all scopes**) and redeploy. **Retrying the passcode cannot help** — no passcode matches when none is configured. |
+| *"Incorrect passcode. N attempt(s) left."* | The passcode really is wrong. `ADMIN_PASSWORD` in Netlify is the exact string to type — no quotes, and watch for a trailing space when pasting. |
+| *"Too many incorrect attempts…"* | Five wrong tries locks your IP for an hour. Wait it out, or redeploy the site to clear the counter. |
+| *"…the sign-in cookie requires https"* | The site is being served over `http://`. Netlify → Domain management → HTTPS, provision the certificate, turn on **Force HTTPS**. |
+| *"Signed in, but GITHUB_TOKEN … is not set"* | Sign-in worked; the editor just cannot reach the content. Add the GitHub variables and redeploy. |
+| *"The sign-in function is not deployed"* | The build did not publish the functions. Check Netlify → Deploys succeeded, and that the site is connected to this repository rather than a dragged-in `dist/` folder. |
+| Nothing at all happens, and no build stamp shows under the button | `/admin/app.js` never ran. Hard-refresh (Ctrl+Shift+R). If the stamp is still blank, check the browser console. |
+
+The small grey text under the **Sign in** button is the editor build stamp. If
+it does not change after a deploy, you are looking at a cached copy of the old
+page — hard-refresh before debugging anything else.
+
+Once you are signed in, **`/api/admin/health`** reports which variables are set
+(never their values) and whether GitHub is reachable.
+
+---
+
 ### Connecting the Telegram bot
 
 Open the dashboard at `/admin/`, go to the **Bot** tab, and press

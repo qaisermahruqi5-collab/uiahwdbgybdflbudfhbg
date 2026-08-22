@@ -5,7 +5,7 @@
 // and the webhook secret are already in this function's environment, so it
 // can call Telegram itself. Neither value is ever returned to the browser.
 
-import { hasSession, passcodeMatches, json } from './lib/auth.mjs';
+import { hasSession, passcodeMatches, json, authConfigError } from './lib/auth.mjs';
 
 const tgApi = (method) => `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`;
 
@@ -30,6 +30,9 @@ function safeInfo(info) {
 }
 
 export default async function handler(request) {
+  const notConfigured = authConfigError();
+  if (notConfigured) return notConfigured;
+
   if (!hasSession(request)) return json({ error: 'Not signed in' }, 401);
 
   if (!process.env.TELEGRAM_BOT_TOKEN) {

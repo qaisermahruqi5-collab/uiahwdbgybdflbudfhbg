@@ -10,7 +10,7 @@
 // passcode message is deleted from the chat immediately.
 // ═══════════════════════════════════════════════════════════════════
 
-import { passcodeMatches, requireEnv } from './lib/auth.mjs';
+import { passcodeMatches, requireEnv, missingAuthConfig } from './lib/auth.mjs';
 import { readJson, writeJson, writeFile, NEWS_PATH, SCHEDULE_PATH, UPLOAD_DIR } from './lib/github.mjs';
 import {
   isUnlocked, unlock, lock, listUnlocked,
@@ -124,6 +124,20 @@ const HELP = [
 ].join('\n');
 
 async function handleUnlock(chatId, text, messageId, from) {
+  // No passcode can match when the server has none configured. Say so
+  // instead of counting it as a wrong attempt and locking the chat.
+  const missing = missingAuthConfig();
+  if (missing.length > 0) {
+    await send(
+      chatId,
+      `⚠️ This bot is not finished being set up: ${missing.join(' and ')} ` +
+      `${missing.length > 1 ? 'are' : 'is'} not set on the server. Add ` +
+      `${missing.length > 1 ? 'them' : 'it'} in Netlify under Site configuration > ` +
+      'Environment variables and redeploy. Your passcode is not the problem.'
+    );
+    return;
+  }
+
   const state = await checkLockout(chatId);
   if (state.lockedOut) {
     await send(chatId, `🚫 Too many wrong passcodes. Try again in ${state.minutes} minute(s).`);

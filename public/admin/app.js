@@ -31,7 +31,7 @@ const $ = (sel) => document.querySelector(sel);
 
 /* Proof-of-life. If the login screen shows no build stamp, this file did not
    execute — which is a different problem from any error message below it. */
-const BUILD = 'editor build 6';
+const BUILD = 'editor build 7';
 document.addEventListener('DOMContentLoaded', () => {
   const stamp = document.getElementById('build-stamp');
   if (stamp) stamp.textContent = BUILD;

@@ -4,7 +4,7 @@
 // reachable. It never returns a secret's value, only a boolean and a length,
 // so it is safe to read from a browser. Requires a valid session.
 
-import { hasSession, json } from './lib/auth.mjs';
+import { hasSession, json, authConfigError } from './lib/auth.mjs';
 import { readJson, diagnoseAccess, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
 
 const present = (name) => {
@@ -13,6 +13,9 @@ const present = (name) => {
 };
 
 export default async function handler(request) {
+  const notConfigured = authConfigError();
+  if (notConfigured) return notConfigured;
+
   if (!hasSession(request)) return json({ error: 'Not signed in' }, 401);
 
   const env = {
