@@ -199,10 +199,14 @@ export const PROGRAMS: Program[] = [
 ];
 
 export const SCHEDULE_NOTE =
-  'Training runs on Monday, Wednesday and Thursday. Families choose either 2 or 3 sessions per week, and each age group keeps a fixed time slot — winter and summer slots differ. Exact days, times and session durations per age group are confirmed at registration.';
+  'Training runs on Sunday, Tuesday and Wednesday. Families choose either 2 or 3 sessions per week, and each age group keeps a fixed time slot — winter and summer slots differ. Exact days, times and session durations per age group are confirmed at registration.';
 
 export const FEES_NOTE =
   'Fees are set by age band and by the number of weekly sessions you choose. Every term can be paid upfront or split into monthly instalments, and the Full Season price covers all three terms paid upfront.';
+
+/** Weekday column headings for the calendar grid — owned by schedule.json
+ *  so changing training days never requires a code edit. */
+export const TRAINING_DAYS: string[] = (scheduleData.trainingDays ?? []).map(d => d.en);
 
 /* ── Term structure ────────────────────────────────────────────── */
 export interface TermRow {
@@ -413,11 +417,11 @@ export const FAQS: FaqItem[] = [
   },
   {
     q: 'Which days and times do you train?',
-    a: 'All age groups train on Monday, Wednesday and Thursday, and each group keeps a fixed time slot. U6 and U8 train 4:30–5:30 PM in winter and 5:00–6:00 PM in summer (60 minutes). U10 and U12 train 5:30–7:00 PM in winter and 6:00–7:30 PM in summer (90 minutes). U14 and U16 train 7:00–8:30 PM in winter and 7:30–9:00 PM in summer (90 minutes).',
+    a: 'All age groups train on Sunday, Tuesday and Wednesday, and each group keeps a fixed time slot. U6 and U8 train 4:30–5:30 PM in winter and 5:00–6:00 PM in summer (60 minutes). U10 and U12 train 5:30–7:00 PM in winter and 6:00–7:30 PM in summer (90 minutes). U14 and U16 train 7:00–8:30 PM in winter and 7:30–9:00 PM in summer (90 minutes).',
   },
   {
     q: 'How many sessions a week are there?',
-    a: 'You choose either 2 or 3 sessions per week when you register, and the fee follows your choice. Both options run on the same Monday, Wednesday and Thursday schedule.',
+    a: 'You choose either 2 or 3 sessions per week when you register, and the fee follows your choice. Both options run on the same Sunday, Tuesday and Wednesday schedule.',
   },
   {
     q: 'Where does training take place?',

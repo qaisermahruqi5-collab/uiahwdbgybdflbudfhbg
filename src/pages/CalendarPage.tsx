@@ -28,9 +28,10 @@ export default function CalendarPage() {
 
   usePageTitle(t('page.calendar'), t('meta.calendarDesc'));
 
-  /* Every group trains on the same three days — the grid repeats the
-     same column of age-group slots under each training day. */
-  const trainingDays = [t('calendar.mon'), t('calendar.wed'), t('calendar.thu')];
+  /* Every group trains on the same days — the grid repeats the same column
+     of age-group slots under each. The day names come from
+     content/schedule.json, so changing training days is a content edit. */
+  const trainingDays = content.trainingDays;
 
   useGSAP(() => {
     if (!containerRef.current) return;

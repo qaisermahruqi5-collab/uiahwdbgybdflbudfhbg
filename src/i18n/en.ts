@@ -77,7 +77,7 @@ const en = {
   'programs.overline': 'PROGRAMS & FEES',
   'programs.title': 'FIND YOUR SQUAD',
   'programs.intro':
-    'From first touches at U6 to the competitive game at U16 — six squads, one clear journey. Every group trains on Monday, Wednesday and Thursday, and you choose 2 or 3 sessions a week.',
+    'From first touches at U6 to the competitive game at U16 — six squads, one clear journey. Every group trains on Sunday, Tuesday and Wednesday, and you choose 2 or 3 sessions a week.',
   'programs.daysLabel': 'Training days',
   'programs.winterLabel': 'Winter',
   'programs.summerLabel': 'Summer',
@@ -130,7 +130,7 @@ const en = {
   'calendar.overline': 'CALENDAR & SCHEDULE',
   'calendar.title': 'WHEN WE TRAIN',
   'calendar.intro':
-    'Every age group trains on Monday, Wednesday and Thursday, and keeps the same time slot all term. Winter and summer slots differ — the table below shows both.',
+    'Every age group trains on Sunday, Tuesday and Wednesday, and keeps the same time slot all term. Winter and summer slots differ — the table below shows both.',
   'calendar.weekOverline': 'TRAINING WEEK',
   'calendar.weekTitle': 'THE WEEKLY GRID',
   'calendar.scheduleOverline': 'FULL SCHEDULE',
@@ -144,9 +144,6 @@ const en = {
   'calendar.winterHeader': 'Winter slot',
   'calendar.summerHeader': 'Summer slot',
   'calendar.durationHeader': 'Session',
-  'calendar.mon': 'MON',
-  'calendar.wed': 'WED',
-  'calendar.thu': 'THU',
   'calendar.winterLabel': 'Winter',
   'calendar.summerLabel': 'Summer',
   'calendar.note':
@@ -291,7 +288,7 @@ const en = {
   'meta.newsDesc':
     'The latest announcements, season updates and news from Genoa Academy Oman in Muscat.',
   'meta.calendarDesc':
-    'Training calendar and weekly schedule for every age group at Genoa Academy Oman — U6 to U16, Monday, Wednesday and Thursday, with winter and summer time slots.',
+    'Training calendar and weekly schedule for every age group at Genoa Academy Oman — U6 to U16, Sunday, Tuesday and Wednesday, with winter and summer time slots.',
   'meta.joinDesc':
     'Apply to Genoa Academy Oman — register your child for elite youth football training in Muscat.',
   'meta.privacyDesc':

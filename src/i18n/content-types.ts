@@ -17,6 +17,7 @@ import {
   SCHEDULE_NOTE,
   FEES_NOTE,
   TERMS,
+  TRAINING_DAYS,
   PRICE_BANDS,
   INCLUDED,
   POLICIES,
@@ -45,6 +46,7 @@ export interface SiteContent {
   programs: Program[];
   scheduleNote: string;
   feesNote: string;
+  trainingDays: string[];
   terms: TermRow[];
   priceBands: PriceBand[];
   included: string[];
@@ -64,6 +66,7 @@ export type SiteContentOverrides = {
   programs?: Array<Partial<Omit<Program, 'id' | 'priceBand' | 'minAge' | 'maxAge'>> & { id: string }>;
   scheduleNote?: string;
   feesNote?: string;
+  trainingDays?: string[];
   terms?: Array<Partial<TermRow>>;
   priceBands?: Array<Partial<Omit<PriceBand, 'id' | 'rows'>> & {
     id: string;
@@ -111,6 +114,7 @@ export function buildSiteContent(overrides?: SiteContentOverrides): SiteContent 
       programs: PROGRAMS,
       scheduleNote: SCHEDULE_NOTE,
       feesNote: FEES_NOTE,
+      trainingDays: TRAINING_DAYS,
       terms: TERMS,
       priceBands: PRICE_BANDS,
       included: INCLUDED,
@@ -136,6 +140,7 @@ export function buildSiteContent(overrides?: SiteContentOverrides): SiteContent 
     }),
     scheduleNote: overrides.scheduleNote ?? SCHEDULE_NOTE,
     feesNote: overrides.feesNote ?? FEES_NOTE,
+    trainingDays: mergeStrings(TRAINING_DAYS, overrides.trainingDays),
     terms: mergeByIndex<TermRow>(TERMS, overrides.terms),
     priceBands: mergePriceBands(overrides.priceBands),
     included: mergeStrings(INCLUDED, overrides.included),

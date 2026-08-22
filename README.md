@@ -5,7 +5,7 @@ Welcome! This is the upgraded website for **Genoa Academy Oman**, a youth footba
 ## What the Site Is
 
 - **Pages:** Home, The Academy, Programs (schedule + full pricing), News, Calendar & Training Schedule, Join (registration form), Privacy, and a friendly 404 page.
-- **Age groups:** U6, U8, U10, U12, U14 and U16 — players aged 5 to 16. All training runs Monday, Wednesday and Thursday, with families choosing 2 or 3 sessions per week.
+- **Age groups:** U6, U8, U10, U12, U14 and U16 — players aged 5 to 16. All training runs Sunday, Tuesday and Wednesday, with families choosing 2 or 3 sessions per week.
 - **Bilingual:** English and Arabic, with an EN/AR toggle in the navigation. Arabic switches the whole site to right-to-left (RTL) automatically.
 - **Registration:** The Join form emails applications to you via Web3Forms, with WhatsApp as a backup contact option.
 

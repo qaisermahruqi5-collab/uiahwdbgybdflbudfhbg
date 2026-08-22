@@ -84,7 +84,12 @@ function sanitiseSchedule(payload, current) {
     duration: str(t.duration, 60), durationAr: str(t.durationAr, 60),
   }));
 
-  return { _comment: payload._comment ?? current?._comment, squads, terms };
+  // Preserve the weekly grid headings. Omitting them here would silently
+  // delete them from the file on the next save.
+  const trainingDays = (Array.isArray(payload.trainingDays) ? payload.trainingDays : current?.trainingDays ?? [])
+    .map(d => ({ en: str(d?.en, 20), ar: str(d?.ar, 40) }));
+
+  return { _comment: payload._comment ?? current?._comment, trainingDays, squads, terms };
 }
 
 export default async function handler(request) {

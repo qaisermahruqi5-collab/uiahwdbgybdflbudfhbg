@@ -1,10 +1,24 @@
 {
   "_comment": "Training schedule + term structure. Edited by the admin dashboard and the Telegram bot - safe to edit by hand too. Fields ending in 'Ar' are the Arabic versions.",
+  "trainingDays": [
+    {
+      "en": "SUN",
+      "ar": "الأحد"
+    },
+    {
+      "en": "TUE",
+      "ar": "الثلاثاء"
+    },
+    {
+      "en": "WED",
+      "ar": "الأربعاء"
+    }
+  ],
   "squads": [
     {
       "id": "u6",
-      "days": "Mon / Wed / Thu",
-      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "days": "Sun / Tue / Wed",
+      "daysAr": "الأحد / الثلاثاء / الأربعاء",
       "winterTime": "4:30 – 5:30 PM",
       "winterTimeAr": "4:30 – 5:30 مساءً",
       "summerTime": "5:00 – 6:00 PM",
@@ -16,8 +30,8 @@
     },
     {
       "id": "u8",
-      "days": "Mon / Wed / Thu",
-      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "days": "Sun / Tue / Wed",
+      "daysAr": "الأحد / الثلاثاء / الأربعاء",
       "winterTime": "4:30 – 5:30 PM",
       "winterTimeAr": "4:30 – 5:30 مساءً",
       "summerTime": "5:00 – 6:00 PM",
@@ -29,8 +43,8 @@
     },
     {
       "id": "u10",
-      "days": "Mon / Wed / Thu",
-      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "days": "Sun / Tue / Wed",
+      "daysAr": "الأحد / الثلاثاء / الأربعاء",
       "winterTime": "5:30 – 7:00 PM",
       "winterTimeAr": "5:30 – 7:00 مساءً",
       "summerTime": "6:00 – 7:30 PM",
@@ -42,8 +56,8 @@
     },
     {
       "id": "u12",
-      "days": "Mon / Wed / Thu",
-      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "days": "Sun / Tue / Wed",
+      "daysAr": "الأحد / الثلاثاء / الأربعاء",
       "winterTime": "5:30 – 7:00 PM",
       "winterTimeAr": "5:30 – 7:00 مساءً",
       "summerTime": "6:00 – 7:30 PM",
@@ -55,8 +69,8 @@
     },
     {
       "id": "u14",
-      "days": "Mon / Wed / Thu",
-      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "days": "Sun / Tue / Wed",
+      "daysAr": "الأحد / الثلاثاء / الأربعاء",
       "winterTime": "7:00 – 8:30 PM",
       "winterTimeAr": "7:00 – 8:30 مساءً",
       "summerTime": "7:30 – 9:00 PM",
@@ -68,8 +82,8 @@
     },
     {
       "id": "u16",
-      "days": "Mon / Wed / Thu",
-      "daysAr": "الاثنين / الأربعاء / الخميس",
+      "days": "Sun / Tue / Wed",
+      "daysAr": "الأحد / الثلاثاء / الأربعاء",
       "winterTime": "7:00 – 8:30 PM",
       "winterTimeAr": "7:00 – 8:30 مساءً",
       "summerTime": "7:30 – 9:00 PM",
