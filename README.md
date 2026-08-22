@@ -226,9 +226,13 @@ under the passcode box before changing anything.
 | *"…the sign-in cookie requires https"* | The site is being served over `http://`. Netlify → Domain management → HTTPS, provision the certificate, turn on **Force HTTPS**. |
 | *"Signed in, but GITHUB_TOKEN … is not set"* | Sign-in worked; the editor just cannot reach the content. Add the GitHub variables and redeploy. |
 | *"The sign-in function is not deployed"* | The build did not publish the functions. Check Netlify → Deploys succeeded, and that the site is connected to this repository rather than a dragged-in `dist/` folder. |
+| Button reads **"Signing in…"** | Working — the function is cold-starting. Give it up to 25 seconds. Do **not** press again; extra presses are ignored, but on builds before 9 each one spent an attempt. |
+| *"The server did not answer within 25 seconds"* | The request hung. Check your connection and try **once** more. |
 | Nothing at all happens, and no build stamp shows under the button | `/admin/app.js` never ran. Hard-refresh (Ctrl+Shift+R). If the stamp is still blank, check the browser console. |
+| *"Heads up: ADMIN_PASSWORD … is wrapped in quote marks"* | The value in Netlify includes the quotes or a stray space. Retype it without them and redeploy. |
 
-The small grey text under the **Sign in** button is the editor build stamp. If
+The current editor build is **9**. The small grey text under the **Sign in**
+button is that stamp. If
 it does not change after a deploy, you are looking at a cached copy of the old
 page — hard-refresh before debugging anything else.
 
