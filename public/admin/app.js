@@ -14,6 +14,7 @@ const API = {
   content: '/api/admin/content',
   telegram: '/api/admin/telegram',
   upload: '/api/admin/upload',
+  setupCheck: '/api/admin/setup-check',
 };
 
 /* Last-resort reporting. Without this, a module-level throw leaves the page
@@ -31,7 +32,7 @@ const $ = (sel) => document.querySelector(sel);
 
 /* Proof-of-life. If the login screen shows no build stamp, this file did not
    execute — which is a different problem from any error message below it. */
-const BUILD = 'editor build 7';
+const BUILD = 'editor build 8';
 document.addEventListener('DOMContentLoaded', () => {
   const stamp = document.getElementById('build-stamp');
   if (stamp) stamp.textContent = BUILD;
@@ -40,6 +41,35 @@ if (document.readyState !== 'loading') {
   const stamp = document.getElementById('build-stamp');
   if (stamp) stamp.textContent = BUILD;
 }
+
+/* Ask the server whether it is even capable of signing anyone in, and say so
+   up front. Without this the only way to find out is to type a passcode and
+   be told it is wrong — which is what made a missing environment variable so
+   hard to recognise, and what quietly consumed the five attempts. */
+async function reportSetup() {
+  let info;
+  try {
+    const res = await fetch(API.setupCheck);
+    if (!res.ok) return; // Older deploy without this route; stay quiet.
+    info = await res.json();
+  } catch {
+    return; // Offline or blocked. The sign-in attempt will report it.
+  }
+  if (!info || info.canSignIn) return;
+
+  const missing = info.missing?.signIn ?? [];
+  const plural = missing.length > 1;
+  const err = $("#login-error");
+  err.textContent =
+    `This site is not finished being set up: ${missing.join(" and ")} ` +
+    `${plural ? "are" : "is"} not set on the server, so no passcode can work. ` +
+    `In Netlify open Site configuration > Environment variables, add ` +
+    `${plural ? "them" : "it"} with the scope set to "All scopes", then redeploy.`;
+  err.hidden = false;
+  const button = document.querySelector("#login-form button[type=submit]");
+  if (button) button.disabled = true; // Do not let them burn attempts on this.
+}
+reportSetup();
 
 const el = (tag, props = {}, kids = []) => {
   const node = Object.assign(document.createElement(tag), props);

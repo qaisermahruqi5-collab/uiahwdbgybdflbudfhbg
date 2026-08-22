@@ -232,8 +232,20 @@ The small grey text under the **Sign in** button is the editor build stamp. If
 it does not change after a deploy, you are looking at a cached copy of the old
 page — hard-refresh before debugging anything else.
 
-Once you are signed in, **`/api/admin/health`** reports which variables are set
-(never their values) and whether GitHub is reachable.
+**`/api/admin/setup-check`** answers the same question *without* signing in —
+open it in a browser tab. It lists the names of any environment variables that
+are still unset, and never returns a value:
+
+```json
+{ "canSignIn": false, "missing": { "signIn": ["ADMIN_PASSWORD"] }, "ready": false }
+```
+
+`canSignIn: false` means no passcode can possibly work yet — fix the listed
+variable rather than retrying. The login screen calls this on load and shows
+the same message, so a half-configured site now says so before you type.
+
+Once you are signed in, **`/api/admin/health`** goes further: it also confirms
+GitHub is reachable and that the two content files exist.
 
 ---
 
