@@ -30,9 +30,51 @@ addEventListener('unhandledrejection', (e) => showFatal(String(e.reason?.message
 
 const $ = (sel) => document.querySelector(sel);
 
+/* Every call the editor makes goes through this.
+
+   A bare fetch() has no timeout: if the connection stalls the promise never
+   settles, no catch runs, and the interface waits forever with nothing on
+   screen to say so. That is what left the button reading "Signing in…"
+   indefinitely — the sign-in itself was capped, but the content load that
+   follows it was not, so a stall there hung the whole flow silently.
+
+   Here every request is capped and every failure carries the name of the
+   step it belongs to, so a hang becomes a sentence instead of a spinner. */
+const TIMEOUT_MS = 25000;
+
+async function apiFetch(url, { stage = "the server", timeoutMs = TIMEOUT_MS, ...opts } = {}) {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: abort.signal });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error(
+        `${stage} did not answer within ${Math.round(timeoutMs / 1000)} seconds. ` +
+        "Check your internet connection and try once more."
+      );
+    }
+    throw new Error(`Could not reach ${stage} (${err.message}).`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Read an error message out of a response without ever throwing. */
+async function errorFrom(res, fallback) {
+  const body = await res.text().catch(() => "");
+  try {
+    return JSON.parse(body).error ?? fallback;
+  } catch {
+    return res.status === 404
+      ? "That function is not deployed. Check Netlify > Deploys succeeded."
+      : `${fallback} (server returned ${res.status})`;
+  }
+}
+
 /* Proof-of-life. If the login screen shows no build stamp, this file did not
    execute — which is a different problem from any error message below it. */
-const BUILD = 'editor build 9';
+const BUILD = 'editor build 10';
 document.addEventListener('DOMContentLoaded', () => {
   const stamp = document.getElementById('build-stamp');
   if (stamp) stamp.textContent = BUILD;
@@ -49,7 +91,7 @@ if (document.readyState !== 'loading') {
 async function reportSetup() {
   let info;
   try {
-    const res = await fetch(API.setupCheck);
+    const res = await apiFetch(API.setupCheck, { stage: 'The setup check', timeoutMs: 8000 });
     if (!res.ok) return; // Older deploy without this route; stay quiet.
     info = await res.json();
   } catch {
@@ -125,7 +167,6 @@ addEventListener('beforeunload', (e) => {
    another POST spending another of the five attempts.
 
    So: show the wait, refuse to run twice at once, and never wait forever. */
-const SIGN_IN_TIMEOUT_MS = 25000;
 let signingIn = false;
 
 $('#login-form').addEventListener('submit', async (e) => {
@@ -134,70 +175,55 @@ $('#login-form').addEventListener('submit', async (e) => {
 
   const err = $('#login-error');
   const button = $('#login-form button[type=submit]');
-  const label = button ? button.textContent : '';
+  const label = button ? button.textContent : 'Sign in';
   err.hidden = true;
-
   signingIn = true;
-  if (button) { button.disabled = true; button.textContent = 'Signing in…'; }
 
-  // A hung connection must not leave the button stuck on 'Signing in…'.
-  const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), SIGN_IN_TIMEOUT_MS);
-
-  const done = () => {
-    clearTimeout(timer);
+  // Name the current step on the button. Two steps happen here — checking
+  // the passcode, then loading the content — and knowing which one is slow
+  // is the difference between a bug report and a diagnosis.
+  const step = (text) => { if (button) { button.disabled = true; button.textContent = text; } };
+  const finish = () => {
     signingIn = false;
     if (button) { button.disabled = false; button.textContent = label; }
   };
+  const stop = (message) => { finish(); err.textContent = message; err.hidden = false; };
 
+  step('Checking passcode…');
   let res;
   try {
-    res = await fetch(API.login, {
+    res = await apiFetch(API.login, {
+      stage: 'The sign-in service',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ passcode: $('#login-pass').value }),
-      signal: abort.signal,
     });
   } catch (netErr) {
-    done();
-    err.textContent =
-      netErr.name === 'AbortError'
-        ? `The server did not answer within ${SIGN_IN_TIMEOUT_MS / 1000} seconds. ` +
-          'Check your connection, then try once more — do not press repeatedly, ' +
-          'as each press uses one of five attempts.'
-        : `Could not reach the sign-in service (${netErr.message}). Check the site finished deploying.`;
-    err.hidden = false;
+    stop(`${netErr.message} Do not press repeatedly — each press uses one of five attempts.`);
     return;
   }
 
   if (!res.ok) {
-    done();
-    const body = await res.text().catch(() => '');
-    let detail;
-    try {
-      detail = JSON.parse(body).error;
-    } catch {
-      // Not JSON: usually a 404 HTML page, i.e. the function is not deployed.
-      detail = res.status === 404
-        ? 'The sign-in function is not deployed. Check Netlify > Deploys succeeded, and that netlify.toml has a [functions] directory.'
-        : `Server returned ${res.status}.`;
-    }
-    err.textContent = detail ?? 'Sign in failed';
-    err.hidden = false;
+    stop(await errorFrom(res, 'Sign in failed'));
     return;
   }
 
   $('#login-pass').value = '';
+  step('Loading your content…');
   try {
     await start();
+  } catch (startErr) {
+    // start() reports its own failures; this catches anything it did not.
+    stop(startErr.message);
+    return;
   } finally {
-    done();
+    finish();
   }
 });
 
 $('#signout').addEventListener('click', async () => {
   if (state.dirty && !confirm('You have unpublished changes. Sign out anyway?')) return;
-  await fetch(API.login, { method: 'DELETE' });
+  await apiFetch(API.login, { method: 'DELETE', stage: 'The sign-out service' }).catch(() => undefined);
   location.reload();
 });
 
@@ -216,9 +242,9 @@ function fail(message) {
 async function start() {
   let res;
   try {
-    res = await fetch(API.content);
-  } catch {
-    fail('Could not reach the server. Check your connection and try again.');
+    res = await apiFetch(API.content, { stage: 'The content service' });
+  } catch (netErr) {
+    fail(netErr.message);
     return;
   }
 
@@ -619,6 +645,6 @@ function validate() {
 }
 
 /* Already signed in from a previous visit? Skip the login screen. */
-fetch(API.content)
+apiFetch(API.content, { stage: 'The content service', timeoutMs: 8000 })
   .then((res) => { if (res.ok) start(); })
   .catch(() => undefined);
