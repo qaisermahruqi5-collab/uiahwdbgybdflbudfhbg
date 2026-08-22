@@ -222,7 +222,7 @@ under the passcode box before changing anything.
 |---|---|
 | *"This site is not finished being set up: … is not set on the server"* | That environment variable is missing in Netlify. Add it (**all scopes**) and redeploy. **Retrying the passcode cannot help** — no passcode matches when none is configured. |
 | *"Incorrect passcode. N attempt(s) left."* | The passcode really is wrong. `ADMIN_PASSWORD` in Netlify is the exact string to type — no quotes, and watch for a trailing space when pasting. |
-| *"Too many incorrect attempts…"* | Five wrong tries locks your IP for an hour. Wait it out, or redeploy the site to clear the counter. |
+| *"Too many incorrect attempts…"* | Five wrong tries locks **your IP** for an hour. The counter lives in Netlify Blobs, so redeploying does **not** clear it — either wait it out, or sign in from a different network (a phone hotspot counts as a different IP). |
 | *"…the sign-in cookie requires https"* | The site is being served over `http://`. Netlify → Domain management → HTTPS, provision the certificate, turn on **Force HTTPS**. |
 | *"Signed in, but GITHUB_TOKEN … is not set"* | Sign-in worked; the editor just cannot reach the content. Add the GitHub variables and redeploy. |
 | *"The sign-in function is not deployed"* | The build did not publish the functions. Check Netlify → Deploys succeeded, and that the site is connected to this repository rather than a dragged-in `dist/` folder. |
