@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Genoa Studio</title>
+    <link rel="icon" href="/favicon-32x32.png" />
+    <link rel="stylesheet" href="/studio/studio.css" />
+  </head>
+  <body>
+    <header class="desk-top">
+      <div class="desk-brand">
+        <img src="/logo.png" alt="" width="385" height="522" />
+        <span>Studio</span>
+      </div>
+
+      <nav class="desk-tabs" role="tablist" aria-label="Sections">
+        <button class="desk-tab" role="tab" aria-selected="true" data-panel="news">News</button>
+        <button class="desk-tab" role="tab" aria-selected="false" data-panel="calendar">Calendar</button>
+        <button class="desk-tab" role="tab" aria-selected="false" data-panel="bot">Bot</button>
+      </nav>
+
+      <div class="desk-actions">
+        <span id="unsaved" class="chip" hidden>Unsaved</span>
+        <button id="publish" class="btn btn-go">Publish</button>
+        <button id="leave" class="btn btn-quiet">Sign out</button>
+      </div>
+    </header>
+
+    <main class="desk-main">
+      <!-- Shown until the content loads, then replaced by the panels. -->
+      <div id="loading" class="empty">Loading your content…</div>
+
+      <!-- News -->
+      <section id="panel-news" class="panel" hidden>
+        <div class="head">
+          <h2>News posts</h2>
+          <button id="add" class="btn">+ New post</button>
+        </div>
+        <p class="lede">
+          Newest first. Arabic is optional beside every English field — leave it blank
+          and Arabic visitors see the English text.
+        </p>
+        <div id="posts" class="stack"></div>
+        <p id="no-posts" class="empty" hidden>No posts yet. Add one above.</p>
+      </section>
+
+      <!-- Calendar -->
+      <section id="panel-calendar" class="panel" hidden>
+        <div class="head"><h2>Training schedule</h2></div>
+        <p class="lede">
+          Squads are fixed by the site. You can change their days, winter and summer
+          times, and session length.
+        </p>
+        <div id="squads" class="stack"></div>
+
+        <div class="head sub"><h2>Season terms</h2></div>
+        <div id="terms" class="stack"></div>
+      </section>
+
+      <!-- Bot -->
+      <section id="panel-bot" class="panel" hidden>
+        <div class="head"><h2>Telegram bot</h2></div>
+        <p class="lede">
+          Connecting tells Telegram where to deliver messages. Do this once, and again
+          if the site address ever changes.
+        </p>
+        <div class="card">
+          <div class="card-top">
+            <span class="card-name">Status</span>
+            <div class="card-tools">
+              <button id="bot-again" class="btn btn-sm btn-quiet">Refresh</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="state"><span id="bot-dot" class="dot"></span><span id="bot-say">Checking…</span></div>
+            <div><button id="bot-link" class="btn">Connect bot</button></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <p id="flash" class="flash" role="status" hidden></p>
+
+    <!-- Publish confirmation -->
+    <dialog id="sheet" class="sheet">
+      <form method="dialog" class="sheet-in">
+        <h2>Confirm publish</h2>
+        <p>Re-enter the admin passcode. Nothing reaches the website without it.</p>
+        <p id="sheet-warn" class="warn" role="alert" hidden></p>
+        <input
+          id="sheet-pass"
+          type="password"
+          placeholder="Admin passcode"
+          autocomplete="current-password"
+        />
+        <div class="row-end">
+          <button value="cancel" class="btn btn-quiet">Cancel</button>
+          <button id="sheet-go" value="go" class="btn btn-go">Publish</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="/studio/desk.js" type="module"></script>
+  </body>
+</html>

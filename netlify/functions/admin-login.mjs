@@ -85,4 +85,4 @@ export default async function handler(request) {
   return json({ ok: true }, 200, { 'Set-Cookie': sessionCookieHeader(createSessionToken()) });
 }
 
-export const config = { path: '/api/admin/login' };
+export const config = { path: ['/api/admin/login', '/studio-io/session'] };

@@ -121,12 +121,28 @@ export function readCookie(request, name) {
   return undefined;
 }
 
-/** True when the caller holds a valid dashboard session.
- *  Never throws: handlers report a missing secret through authConfigError(),
- *  so this must not turn one into an unexplained 500. */
+/**
+ * True when the caller holds a valid dashboard session.
+ *
+ * TWO ways to present one, because a cookie is not always available. Safari's
+ * tracking prevention, "block all cookies", a locked-down corporate profile or
+ * a privacy extension can all silently drop a Secure SameSite cookie, and the
+ * result is indistinguishable from never having signed in. So the same signed
+ * token is also accepted from an Authorization header, which nothing strips.
+ *
+ * The token is identical either way: signed, 12-hour, carrying no secret. This
+ * widens how it may be presented, not what it grants.
+ *
+ * Never throws: handlers report a missing secret through authConfigError(),
+ * so this must not turn one into an unexplained 500.
+ */
 export function hasSession(request) {
   try {
-    return sessionIsValid(readCookie(request, SESSION_COOKIE));
+    if (sessionIsValid(readCookie(request, SESSION_COOKIE))) return true;
+
+    const header = request.headers.get('authorization') ?? '';
+    const bearer = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+    return bearer ? sessionIsValid(bearer) : false;
   } catch {
     return false;
   }

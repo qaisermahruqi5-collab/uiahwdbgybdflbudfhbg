@@ -77,4 +77,4 @@ export default async function handler(request) {
   });
 }
 
-export const config = { path: '/api/admin/upload' };
+export const config = { path: ['/api/admin/upload', '/studio-io/upload'] };

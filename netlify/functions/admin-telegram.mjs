@@ -100,4 +100,4 @@ export default async function handler(request) {
   }
 }
 
-export const config = { path: '/api/admin/telegram' };
+export const config = { path: ['/api/admin/telegram', '/studio-io/bot'] };

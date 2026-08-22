@@ -54,4 +54,4 @@ export default async function handler(request) {
   return json({ healthy, repo, access, env, checks });
 }
 
-export const config = { path: '/api/admin/health' };
+export const config = { path: ['/api/admin/health', '/studio-io/health'] };

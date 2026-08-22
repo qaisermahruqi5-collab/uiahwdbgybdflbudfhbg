@@ -54,9 +54,35 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# The editing surfaces are not part of the public site.
+[[headers]]
+  for = "/studio/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+    Cache-Control = "no-store"
+
+[[headers]]
+  for = "/studio-io/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+    Cache-Control = "no-store"
+
 # The admin dashboard is not part of the public site.
 [[headers]]
   for = "/admin/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow, noarchive"
     Cache-Control = "no-store"
+
+# ═══════════════════════════════════════════════════════════════════
+# The old dashboard has been replaced by Studio. One door, so nobody
+# lands on the version that could not tell them why it was failing.
+# 302 rather than 301: this stays reversible, and no browser caches it
+# permanently.
+# ═══════════════════════════════════════════════════════════════════
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/studio/"
+  status = 302
+  force = true

@@ -54,4 +54,4 @@ export default async function handler(request) {
   });
 }
 
-export const config = { path: '/api/admin/setup-check' };
+export const config = { path: ['/api/admin/setup-check', '/studio-io/check'] };

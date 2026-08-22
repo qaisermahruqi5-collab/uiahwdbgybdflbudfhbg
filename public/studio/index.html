@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Genoa Studio — Sign in</title>
+    <link rel="icon" href="/favicon-32x32.png" />
+    <link rel="stylesheet" href="/studio/studio.css" />
+  </head>
+  <body class="gate-body">
+    <main class="gate">
+      <!--
+        A PLAIN FORM POST, on purpose.
+
+        The old dashboard signed in with fetch(). When that request never
+        completed there was nothing to show, because a blocked or stalled
+        fetch produces no response, no error and no event — so the button
+        just sat there reading "Signing in…".
+
+        The browser owns this submission. It either lands on the desk or it
+        shows its own error page. There is no silent third state, and it
+        works with JavaScript switched off entirely.
+      -->
+      <form class="gate-card" method="POST" action="/studio-io/enter" autocomplete="off">
+        <img class="gate-mark" src="/logo.png" alt="" width="385" height="522" />
+        <p class="gate-eyebrow">Genoa Academy</p>
+        <h1 class="gate-title">Studio</h1>
+
+        <p id="setup-note" class="gate-note" role="alert" hidden></p>
+
+        <label class="gate-label" for="passcode">Admin passcode</label>
+        <input
+          class="gate-input"
+          id="passcode"
+          name="passcode"
+          type="password"
+          autocomplete="current-password"
+          required
+          autofocus
+        />
+
+        <button class="gate-go" type="submit">Sign in</button>
+
+        <p class="gate-foot">
+          <span id="stamp"></span>
+          &middot;
+          <a href="/studio/check.html">Connection check</a>
+        </p>
+      </form>
+    </main>
+
+    <!--
+      Optional. The form above works without it; this only adds an early
+      warning when the server is misconfigured, so nobody spends attempts
+      on a fault that is not theirs.
+    -->
+    <script src="/studio/gate.js" type="module"></script>
+  </body>
+</html>

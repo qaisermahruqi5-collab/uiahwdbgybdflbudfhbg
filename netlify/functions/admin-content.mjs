@@ -200,4 +200,4 @@ export default async function handler(request) {
   return json({ ok: true, written });
 }
 
-export const config = { path: '/api/admin/content' };
+export const config = { path: ['/api/admin/content', '/studio-io/content'] };
