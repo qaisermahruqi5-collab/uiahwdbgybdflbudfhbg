@@ -213,22 +213,16 @@ Set in **Netlify → Site configuration → Environment variables**, all scopes:
 | `TELEGRAM_BOT_TOKEN` | From BotFather |
 | `TELEGRAM_WEBHOOK_SECRET` | Long random string, also given to Telegram below |
 
-### Registering the Telegram webhook
+### Connecting the Telegram bot
 
-Do this **once**, after the site has deployed. Replace both placeholders:
+Open the dashboard at `/admin/`, go to the **Bot** tab, and press
+**Connect bot**. That is the whole procedure — no terminal, and no handling the
+bot token yourself. The function already holds the token and the webhook
+secret, and tells Telegram where to deliver messages.
 
-```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" -H "Content-Type: application/json" -d "{\"url\":\"https://<YOUR_SITE>/api/telegram\",\"secret_token\":\"<YOUR_TELEGRAM_WEBHOOK_SECRET>\",\"allowed_updates\":[\"message\"]}"
-```
-
-Check it took:
-
-```bash
-curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
-```
-
-`pending_update_count` should be 0 and `last_error_message` absent. Then send
-your bot any message — it should ask for the passcode.
+The Bot tab also shows live status: whether Telegram is pointed at this site,
+how many messages are queued, and the last error Telegram reported. Press
+**Connect bot** again whenever the site's address changes.
 
 ---
 
