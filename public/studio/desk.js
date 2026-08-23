@@ -30,6 +30,8 @@ const ROUTES = {
   bot: ['/studio-io/bot', '/api/admin/telegram'],
   session: ['/studio-io/session', '/api/admin/login'],
   health: ['/studio-io/health', '/api/admin/health'],
+  pulse: ['/studio-io/pulse', '/api/admin/pulse'],
+  status: ['/studio-io/status', '/api/admin/status'],
 };
 
 /* Once a spelling answers, keep using it. */
@@ -193,7 +195,81 @@ function field(label, value, onInput, { area = false, rtl = false, type = 'text'
   return el('div', { className: 'field' }, [el('label', { textContent: label }), input]);
 }
 
-/* ── News ─────────────────────────────────────────────────────────── */
+/* ── News ───────────────────────────────────────────────────────────
+   Eight fields per post, all shown at once, made a simple job look like
+   paperwork. Writing a post really needs four things: a headline, a date,
+   a summary and maybe a photo. Everything else is either optional or
+   derivable, so it is folded away until asked for.
+
+   Posts are a list of closed rows, and only the one being worked on is
+   open. Adding a post opens it and puts the cursor in the headline.   */
+
+/* Ids the editor generated, so they can keep following the headline.
+   Once a person edits one by hand it is theirs and we stop touching it. */
+const autoIds = new WeakSet();
+
+/* The expanded post, held BY REFERENCE not by id: typing a headline rewrites
+   the id, and an id-keyed accordion would snap shut mid-sentence. */
+let openPost = null;
+
+const slug = (text) =>
+  String(text ?? '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+
+/** Readable date for a closed row: "21 Aug 2026". */
+function niceDate(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso ?? '')) return 'No date';
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return 'No date';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+/**
+ * A fold-away group.
+ *
+ * ALWAYS starts closed, even when it already has content. Opening it
+ * automatically for every post that happens to have an Arabic headline would
+ * put all nine fields back on screen for exactly the posts this site already
+ * has — which is the clutter this was meant to remove. Instead the label says
+ * whether there is anything inside, so nothing is hidden without a trace.
+ */
+function foldaway(label, filled, build) {
+  const wrap = el("div", { className: "fold" });
+  const body = el("div", { className: "fold-body", hidden: true });
+  let open = false;
+  let built = false;
+
+  const caret = el("span", { className: "fold-caret", textContent: "▸" });
+  const mark = el("span", {
+    className: filled ? "fold-mark filled" : "fold-mark",
+    textContent: filled ? "filled in" : "empty",
+  });
+
+  const toggle = el("button", {
+    type: "button",
+    className: "fold-top",
+    onclick: () => {
+      open = !open;
+      if (open && !built) {
+        build(body);
+        built = true;
+      }
+      body.hidden = !open;
+      caret.textContent = open ? "▾" : "▸";
+      toggle.setAttribute("aria-expanded", String(open));
+    },
+  });
+
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.append(caret, el("span", { textContent: label }), mark);
+
+  wrap.append(toggle, body);
+  return wrap;
+}
 
 function renderNews() {
   const host = $('#posts');
@@ -203,9 +279,30 @@ function renderNews() {
   $('#no-posts').hidden = items.length > 0;
 
   items.forEach((post, index) => {
-    const card = el('div', { className: 'card' });
+    const isOpen = openPost === post;
+    const card = el('div', { className: `card post${isOpen ? ' open' : ''}` });
 
-    const tools = el('div', { className: 'card-tools' }, [
+    /* ── The closed row: what it is, when, and whether it has a photo ── */
+
+    const summary = el('button', {
+      type: 'button',
+      className: 'post-top',
+      onclick: () => {
+        openPost = isOpen ? null : post;
+        renderNews();
+      },
+    });
+
+    summary.append(
+      el('span', { className: 'post-caret', textContent: isOpen ? '▾' : '▸' }),
+      post.image?.jpg
+        ? el('img', { className: 'post-thumb', src: post.image.jpg, alt: '' })
+        : el('span', { className: 'post-thumb empty', textContent: '—' }),
+      el('span', { className: 'post-headline', textContent: post.title || 'Untitled post' }),
+      el('span', { className: 'post-date', textContent: niceDate(post.date) })
+    );
+
+    const tools = el('div', { className: 'post-tools' }, [
       el('button', {
         className: 'btn btn-sm btn-quiet',
         textContent: '↑',
@@ -234,64 +331,103 @@ function renderNews() {
         onclick: () => {
           if (!confirm(`Delete "${post.title || 'this post'}"?`)) return;
           items.splice(index, 1);
+          if (openPost === post) openPost = null;
           touched();
           renderNews();
         },
       }),
     ]);
 
-    card.append(
-      el('div', { className: 'card-top' }, [
-        el('span', { className: 'card-name', textContent: post.title || 'Untitled post' }),
-        el('span', { className: 'card-when', textContent: post.date || '—' }),
-        tools,
-      ])
-    );
+    card.append(el('div', { className: 'post-row' }, [summary, tools]));
+
+    if (!isOpen) {
+      host.append(card);
+      return;
+    }
+
+    /* ── Open: the four things that actually matter ── */
 
     const body = el('div', { className: 'card-body' });
 
+    const headline = field('Headline', post.title, (v) => {
+      post.title = v;
+      // A new post's web address follows the headline until someone edits it.
+      if (autoIds.has(post)) post.id = slug(v) || post.id;
+      summary.querySelector('.post-headline').textContent = v || 'Untitled post';
+    });
+
+    const date = field('Date', post.date, (v) => {
+      post.date = v;
+      summary.querySelector('.post-date').textContent = niceDate(v);
+    }, { type: 'date' });
+
     body.append(
-      el('div', { className: 'pair' }, [
-        field('Headline', post.title, (v) => {
-          post.title = v;
-          card.querySelector('.card-name').textContent = v || 'Untitled post';
-        }),
-        field('العنوان (Arabic)', post.titleAr, (v) => (post.titleAr = v), { rtl: true }),
-      ]),
-      el('div', { className: 'pair' }, [
-        field('Date', post.date, (v) => {
-          post.date = v;
-          card.querySelector('.card-when').textContent = v || '—';
-        }, { type: 'date' }),
-        field('Category', post.category, (v) => (post.category = v)),
-      ]),
-      el('div', { className: 'pair' }, [
-        field('Category (Arabic)', post.categoryAr, (v) => (post.categoryAr = v), { rtl: true }),
-        field('Web address id', post.id, (v) => (post.id = v)),
-      ]),
-      el('div', { className: 'pair' }, [
-        field('Summary', post.excerpt, (v) => (post.excerpt = v), { area: true }),
-        field('الملخص (Arabic)', post.excerptAr, (v) => (post.excerptAr = v), {
-          area: true,
-          rtl: true,
-        }),
-      ]),
-      photoRow(post)
+      headline,
+      date,
+      field('Summary', post.excerpt, (v) => (post.excerpt = v), { area: true }),
+      photoRow(post, summary)
+    );
+
+    /* ── Folded away: Arabic, then the technical bits ── */
+
+    const hasArabic = Boolean(
+      String(post.titleAr ?? '').trim() || String(post.excerptAr ?? '').trim()
+    );
+
+    body.append(
+      foldaway('Arabic version (optional)', hasArabic, (into) => {
+        into.append(
+          el('p', {
+            className: 'fold-note',
+            textContent:
+              'Leave these blank and Arabic visitors see the English text. Nothing breaks.',
+          }),
+          field('العنوان — headline', post.titleAr, (v) => (post.titleAr = v), { rtl: true }),
+          field('الملخص — summary', post.excerptAr, (v) => (post.excerptAr = v), {
+            area: true,
+            rtl: true,
+          }),
+          field('التصنيف — category', post.categoryAr, (v) => (post.categoryAr = v), { rtl: true })
+        );
+      }),
+      foldaway('Category and web address', Boolean(String(post.category ?? '').trim()), (into) => {
+        into.append(
+          field('Category', post.category, (v) => (post.category = v)),
+          field('Web address id', post.id, (v) => {
+            autoIds.delete(post); // Hand-edited from now on.
+            post.id = v;
+          })
+        );
+        into.append(
+          el('p', {
+            className: 'fold-note',
+            textContent:
+              'The web address is filled in from the headline automatically. Only change it if you need a specific link.',
+          })
+        );
+      })
     );
 
     card.append(body);
     host.append(card);
+
+    // Opening a post should put the cursor where the writing starts.
+    if (post.title === '') headline.querySelector('input')?.focus();
   });
 }
 
-function photoRow(post) {
-  const wrap = el('div', { className: 'shot' });
+function photoRow(post, summaryRow) {
+  const wrap = el('div', { className: 'field' });
+  wrap.append(el('label', { textContent: 'Photo (optional)' }));
+
+  const shot = el('div', { className: 'shot' });
+  wrap.append(shot);
 
   const draw = () => {
-    wrap.replaceChildren();
+    shot.replaceChildren();
 
     if (post.image?.jpg) {
-      wrap.append(el('img', { src: post.image.jpg, alt: '' }));
+      shot.append(el('img', { src: post.image.jpg, alt: '' }));
     }
 
     const drop = el('div', {
@@ -319,22 +455,34 @@ function photoRow(post) {
       if (file) take(file);
     });
 
-    wrap.append(drop, picker);
+    shot.append(drop, picker);
 
     if (post.image?.jpg) {
-      wrap.append(
+      shot.append(
         el('button', {
           className: 'btn btn-sm btn-danger',
-          textContent: 'Remove photo',
+          textContent: 'Remove',
           onclick: () => {
             post.image = null;
             touched();
             draw();
+            refreshThumb();
           },
         })
       );
     }
   };
+
+  /** Keep the closed row's thumbnail in step with the photo. */
+  function refreshThumb() {
+    if (!summaryRow) return;
+    const old = summaryRow.querySelector('.post-thumb');
+    if (!old) return;
+    const next = post.image?.jpg
+      ? el('img', { className: 'post-thumb', src: post.image.jpg, alt: '' })
+      : el('span', { className: 'post-thumb empty', textContent: '—' });
+    old.replaceWith(next);
+  }
 
   async function take(file) {
     const passcode = await askPasscode('Uploading a photo needs the admin passcode.');
@@ -371,17 +519,14 @@ function photoRow(post) {
     post.image = { ...body.image, alt: post.image?.alt ?? '' };
     touched();
     draw();
-    flash('Photo uploaded. Press Publish to put it on the site.');
+    refreshThumb();
+    flash('Photo added. Press Publish to put it on the site.');
   }
 
   draw();
   return wrap;
 }
 
-/**
- * Resize in the browser so a 12MP phone photo never travels at full size,
- * and produce both formats the site expects.
- */
 function shrink(file, maxWidth = 1600) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -413,7 +558,7 @@ function shrink(file, maxWidth = 1600) {
 
 $('#add').addEventListener('click', () => {
   const today = new Date().toISOString().slice(0, 10);
-  (data.news.items ??= []).unshift({
+  const post = {
     id: `post-${Date.now().toString(36)}`,
     date: today,
     category: '',
@@ -423,7 +568,13 @@ $('#add').addEventListener('click', () => {
     excerpt: '',
     excerptAr: '',
     image: null,
-  });
+  };
+
+  // Newly created, so its web address may follow the headline.
+  autoIds.add(post);
+
+  (data.news.items ??= []).unshift(post);
+  openPost = post; // Open it straight away: nobody adds a post to leave it closed.
   touched();
   renderNews();
 });
@@ -549,6 +700,203 @@ $('#bot-link').addEventListener('click', async () => {
 });
 
 /* ── Passcode sheet ───────────────────────────────────────────────── */
+
+/* ── Status ───────────────────────────────────────────────────────
+   Two different questions, deliberately kept apart:
+
+     "Right now"   — who is here. Cheap, refreshed on a timer.
+     "Site health" — what will stop working. Costs GitHub calls, so it
+                     is fetched once per visit to the tab, not on a loop.
+
+   Both fail quietly. A broken counter must never make the editor look
+   broken, because the editor is the part that matters.               */
+
+const STATS_EVERY_MS = 30_000;
+let statsTimer = null;
+
+const setDot = (id, state) => {
+  const dot = $(id);
+  if (dot) dot.className = `dot ${state}`;
+};
+
+async function refreshStats() {
+  let res;
+  try {
+    res = await send('pulse', {}, 12000);
+  } catch {
+    return; // Offline or blocked: leave the last known figures on screen.
+  }
+  if (!res.ok) return;
+
+  const info = await res.json().catch(() => null);
+  if (!info) return;
+
+  $('#n-site').textContent = info.now?.site ?? 0;
+  $('#n-studio').textContent = info.now?.studio ?? 0;
+  $('#n-today').textContent = info.forms?.today ?? 0;
+  $('#n-week').textContent = `${info.forms?.week ?? 0} in the last 7 days`;
+
+  drawSpark(info.forms?.byDay ?? []);
+}
+
+/** A seven-bar chart, drawn with divs. No library, no canvas, no CSP trouble. */
+function drawSpark(byDay) {
+  const host = $('#spark-bars');
+  const card = $('#spark');
+  if (!host || !card) return;
+
+  if (!byDay.length || byDay.every((d) => !d.count)) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  const peak = Math.max(...byDay.map((d) => d.count), 1);
+  host.replaceChildren();
+
+  for (const day of byDay) {
+    const height = Math.max(3, Math.round((day.count / peak) * 100));
+    const label = new Date(`${day.date}T00:00:00Z`).toLocaleDateString('en-GB', {
+      weekday: 'short',
+      timeZone: 'UTC',
+    });
+
+    host.append(
+      el('div', { className: 'spark-col', title: `${day.date}: ${day.count}` }, [
+        el('span', { className: 'spark-count', textContent: day.count || '' }),
+        el('span', { className: 'spark-bar', style: `height:${height}%` }),
+        el('span', { className: 'spark-day', textContent: label }),
+      ])
+    );
+  }
+}
+
+async function refreshHealth() {
+  $('#pub-say').textContent = 'Checking…';
+
+  let res;
+  try {
+    res = await send('status', {}, 20000);
+  } catch (err) {
+    setDot('#pub-dot', 'off');
+    $('#pub-say').textContent = err.message;
+    return;
+  }
+
+  if (!res.ok) {
+    setDot('#pub-dot', 'off');
+    $('#pub-say').textContent = await reasonFrom(res, 'Could not read the site status');
+    return;
+  }
+
+  const s = await res.json();
+
+  /* Can we publish at all? */
+  setDot('#pub-dot', s.canPublish ? 'on' : 'off');
+  $('#pub-say').textContent = s.canPublish
+    ? `Publishing works — ${s.repo}`
+    : s.access?.reason ?? `Publishing is refused for ${s.repo}.`;
+
+  /* When does the token lapse? This is the one that ambushes people. */
+  const token = s.token;
+  if (!token) {
+    setDot('#tok-dot', '');
+    $('#tok-say').textContent = 'Token expiry unknown (classic tokens do not report one).';
+  } else if (token.expired) {
+    setDot('#tok-dot', 'off');
+    $('#tok-say').textContent = `GitHub token EXPIRED on ${token.raw}. Publishing will fail until it is replaced.`;
+  } else if (token.soon) {
+    setDot('#tok-dot', 'off');
+    $('#tok-say').textContent =
+      `GitHub token expires in ${token.daysLeft} day(s), on ${token.raw}. ` +
+      'Renew it before then, or publishing stops.';
+  } else {
+    setDot('#tok-dot', 'on');
+    $('#tok-say').textContent = `GitHub token valid for ${token.daysLeft} more day(s).`;
+  }
+
+  /* When did anything last reach the website? */
+  if (s.lastPublish?.when) {
+    const when = new Date(s.lastPublish.when);
+    const hours = Math.round((Date.now() - when.getTime()) / 3600000);
+    const ago =
+      hours < 1 ? 'less than an hour ago' : hours < 48 ? `${hours} hours ago` : `${Math.round(hours / 24)} days ago`;
+    setDot('#last-dot', 'on');
+    $('#last-say').textContent = `Last published ${ago} — ${s.lastPublish.message}`;
+  } else {
+    setDot('#last-dot', '');
+    $('#last-say').textContent = 'No publish history found yet.';
+  }
+
+  /* What is actually on the site. */
+  const c = s.content ?? {};
+  const lines = $('#content-lines');
+  lines.replaceChildren();
+  for (const [label, value] of [
+    ['News posts', c.posts],
+    ['With a photo', c.withPhotos],
+    ['Missing an Arabic headline', c.missingArabic],
+    ['Squads', c.squads],
+    ['Season terms', c.terms],
+    ['Newest post', c.newestPost ?? '—'],
+  ]) {
+    if (value === null || value === undefined) continue;
+    lines.append(
+      el('div', { className: 'state-row' }, [
+        el('span', { className: 'state-key', textContent: label }),
+        el('span', { className: 'state-val', textContent: String(value) }),
+      ])
+    );
+  }
+}
+
+$('#stats-again').addEventListener('click', refreshStats);
+$('#health-again').addEventListener('click', refreshHealth);
+
+/** Called when the Status tab is opened. */
+function startStatus() {
+  refreshStats();
+  refreshHealth();
+  if (statsTimer) clearInterval(statsTimer);
+  statsTimer = setInterval(refreshStats, STATS_EVERY_MS);
+}
+
+function stopStatus() {
+  if (statsTimer) clearInterval(statsTimer);
+  statsTimer = null;
+}
+
+/* ── Being counted ourselves ──────────────────────────────────────
+   The desk reports its own presence, so "in Studio" includes whoever
+   is reading it. Same anonymous shape as the public site: a random id
+   for this tab, nothing else.                                       */
+
+function studioTabId() {
+  try {
+    const existing = sessionStorage.getItem('studio.tab');
+    if (existing) return existing;
+    const fresh = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    sessionStorage.setItem('studio.tab', fresh);
+    return fresh;
+  } catch {
+    return `anon-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function reportPresence() {
+  if (document.visibilityState !== 'visible') return;
+  send('pulse', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ where: 'studio', id: studioTabId() }),
+  }, 8000).catch(() => undefined);
+}
+
+reportPresence();
+setInterval(reportPresence, 45_000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') reportPresence();
+});
 
 /**
  * Resolves to the typed passcode, or the empty string if cancelled.
@@ -678,7 +1026,12 @@ for (const tab of document.querySelectorAll('.desk-tab')) {
     for (const name of ['news', 'calendar', 'bot']) {
       $(`#panel-${name}`).hidden = name !== tab.dataset.panel;
     }
-    if (tab.dataset.panel === 'bot') refreshBot();
+    if (tab.dataset.panel === 'bot') {
+      refreshBot();
+      startStatus();
+    } else {
+      stopStatus(); // Do not keep polling a tab nobody is looking at.
+    }
   });
 }
 

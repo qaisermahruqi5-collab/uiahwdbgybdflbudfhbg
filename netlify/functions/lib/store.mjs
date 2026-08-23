@@ -102,6 +102,93 @@ export async function clearFailures(chatId) {
   await writeJson('auth-attempts', all);
 }
 
+/* ── Presence and daily counts ────────────────────────────────────
+
+   One blob per live tab rather than one shared counter. A shared
+   counter would be a read-modify-write on every ping, and simultaneous
+   visitors would silently overwrite each other. Separate keys cannot
+   race: listing them IS the count.
+
+   Keys are namespaced so a listing never has to touch anything else in
+   the store, and expired ones are deleted as they are found.        */
+
+const PRESENCE_PREFIX = (where) => `pulse/${where}/`;
+const MAX_KEYS = 300; // A ceiling, so one odd day cannot make this slow.
+
+export async function recordPresence(where, id) {
+  await writeJson(`${PRESENCE_PREFIX(where)}${id}`, { t: Date.now() });
+}
+
+/** How many tabs have pinged within the window. Sweeps stale keys as it goes. */
+export async function countPresence(where, windowMs) {
+  const prefix = PRESENCE_PREFIX(where);
+  let keys = [];
+  try {
+    const listed = await store().list({ prefix });
+    keys = (listed?.blobs ?? []).slice(0, MAX_KEYS).map((b) => b.key);
+  } catch {
+    return 0; // Storage unavailable: report nothing rather than failing.
+  }
+
+  const cutoff = Date.now() - windowMs;
+  const stale = [];
+  let live = 0;
+
+  await Promise.all(
+    keys.map(async (key) => {
+      const entry = await readJson(key, null);
+      if (entry && entry.t > cutoff) live += 1;
+      else stale.push(key);
+    })
+  );
+
+  // Housekeeping, best effort: a failed delete just means one more pass.
+  await Promise.all(
+    stale.map((key) => store().delete(key).catch(() => undefined))
+  ).catch(() => undefined);
+
+  return live;
+}
+
+/* Daily events (registration form submissions).
+
+   Also one key per event, for the same reason: two people submitting at
+   once must not collapse into one. The date is in the key, so a day is
+   counted by listing its prefix. */
+
+const dayKey = (d = new Date()) => d.toISOString().slice(0, 10);
+
+export async function recordEvent(kind) {
+  const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  await writeJson(`event/${kind}/${dayKey()}/${id}`, { t: Date.now() });
+}
+
+const countPrefix = async (prefix) => {
+  try {
+    const listed = await store().list({ prefix });
+    return (listed?.blobs ?? []).length;
+  } catch {
+    return 0;
+  }
+};
+
+/** Today, and the last seven days including today. */
+export async function countEvents(kind) {
+  const days = [...Array(7)].map((_, i) => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    return dayKey(d);
+  });
+
+  const counts = await Promise.all(days.map((d) => countPrefix(`event/${kind}/${d}/`)));
+  return {
+    today: counts[0],
+    week: counts.reduce((a, b) => a + b, 0),
+    byDay: days.map((date, i) => ({ date, count: counts[i] })).reverse(),
+  };
+}
+
+
 /* ── Telegram: in-progress draft for one chat ─────────────────── */
 
 export async function getDraft(chatId) {

@@ -18,7 +18,7 @@
       <nav class="desk-tabs" role="tablist" aria-label="Sections">
         <button class="desk-tab" role="tab" aria-selected="true" data-panel="news">News</button>
         <button class="desk-tab" role="tab" aria-selected="false" data-panel="calendar">Calendar</button>
-        <button class="desk-tab" role="tab" aria-selected="false" data-panel="bot">Bot</button>
+        <button class="desk-tab" role="tab" aria-selected="false" data-panel="bot">Status &amp; Bot</button>
       </nav>
 
       <div class="desk-actions">
@@ -59,12 +59,73 @@
         <div id="terms" class="stack"></div>
       </section>
 
-      <!-- Bot -->
+      <!-- Status & Bot -->
       <section id="panel-bot" class="panel" hidden>
-        <div class="head"><h2>Telegram bot</h2></div>
+        <div class="head">
+          <h2>Right now</h2>
+          <button id="stats-again" class="btn btn-sm btn-quiet">Refresh</button>
+        </div>
         <p class="lede">
-          Connecting tells Telegram where to deliver messages. Do this once, and again
-          if the site address ever changes.
+          Live figures, refreshed every half minute while this tab is open.
+        </p>
+
+        <div class="tiles">
+          <div class="tile">
+            <span class="tile-num" id="n-site">–</span>
+            <span class="tile-label">reading the website</span>
+            <span class="tile-sub">in the last 3 minutes</span>
+          </div>
+          <div class="tile">
+            <span class="tile-num" id="n-studio">–</span>
+            <span class="tile-label">in Studio</span>
+            <span class="tile-sub">including you</span>
+          </div>
+          <div class="tile">
+            <span class="tile-num" id="n-today">–</span>
+            <span class="tile-label">applications today</span>
+            <span class="tile-sub" id="n-week">–</span>
+          </div>
+        </div>
+
+        <div id="spark" class="card spark-card" hidden>
+          <div class="card-top"><span class="card-name">Applications, last 7 days</span></div>
+          <div class="card-body"><div id="spark-bars" class="spark"></div></div>
+        </div>
+
+        <div class="head sub"><h2>Site health</h2></div>
+        <p class="lede">
+          The things that quietly stop working. Worth a glance before a busy week.
+        </p>
+
+        <div class="stack">
+          <div class="card">
+            <div class="card-top">
+              <span class="card-name">Publishing</span>
+              <div class="card-tools">
+                <button id="health-again" class="btn btn-sm btn-quiet">Check</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="state"><span id="pub-dot" class="dot"></span><span id="pub-say">Checking…</span></div>
+              <div class="state"><span id="tok-dot" class="dot"></span><span id="tok-say">Checking token…</span></div>
+              <div class="state"><span id="last-dot" class="dot"></span><span id="last-say">Checking last publish…</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-top"><span class="card-name">Content</span></div>
+            <div class="card-body">
+              <div id="content-lines" class="state-list">
+                <span class="muted-line">Loading…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="head sub"><h2>Telegram bot</h2></div>
+        <p class="lede">
+          Connecting tells Telegram where to deliver messages. Do this once, and
+          again if the site address ever changes.
         </p>
         <div class="card">
           <div class="card-top">
@@ -78,7 +139,17 @@
             <div><button id="bot-link" class="btn">Connect bot</button></div>
           </div>
         </div>
+
+        <p class="lede fineprint">
+          The two "right now" figures count browser tabs that reported in during
+          the last three minutes. No cookie is set, no IP address is stored, and
+          nothing is kept once a tab closes — it is a presence light, not
+          analytics. Application counts come from the website confirming a
+          successful send, and start from when this feature was added; the
+          emails themselves remain the record of what was actually received.
+        </p>
       </section>
+
     </main>
 
     <p id="flash" class="flash" role="status" hidden></p>

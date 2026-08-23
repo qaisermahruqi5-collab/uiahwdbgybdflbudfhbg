@@ -151,16 +151,58 @@ be reverted from the repo's history.
 Go to **`/studio/`** on your site (`genoaacademyom.com/studio/`). It is
 `noindex`-ed and linked from nowhere. `/admin/` redirects here.
 
-- **News** — add, edit, reorder and delete posts; drop a photo straight onto a
-  post. Photos are resized in your browser before upload, so a 12MP phone
-  picture never travels at full size.
+- **News** — posts are a list of closed rows; open one to edit it. A post needs
+  four things: headline, date, summary, and optionally a photo. Arabic and the
+  category/web-address settings fold away, labelled so you can see at a glance
+  whether they hold anything. The web address writes itself from the headline
+  until you edit it by hand.
+- Photos are resized in your browser before upload, so a 12MP phone picture
+  never travels at full size.
 - **Calendar** — change each squad's days, winter and summer slots and session
   length, plus the term weeks. Squads cannot be added or removed here; that is
   a code change, deliberately.
-- **Bot** — connect or re-connect the Telegram webhook in one click.
+- **Status & Bot** — who is on the site right now, applications today, whether
+  publishing still works, when the GitHub token expires, and the Telegram
+  webhook.
 - Arabic sits beside every English field. **Leave Arabic blank and the English
   text is shown to Arabic visitors** — nothing breaks.
 - Click **Publish**, then re-enter the admin passcode.
+
+#### The Status & Bot tab
+
+| Shows | Where it comes from |
+|---|---|
+| Reading the website / In Studio | Browser tabs that reported in during the last 3 minutes |
+| Applications today, and a 7-day chart | The website confirming a successful send |
+| Publishing works / refused | Asks GitHub what the token can actually do |
+| GitHub token expiry, warned inside 14 days | The expiry header GitHub returns on every authenticated call |
+| Last published, and what changed | The most recent commit touching `content/` |
+| Post, squad and term counts; posts missing Arabic | The content files themselves |
+
+The token-expiry line exists because an expired token stops publishing with no
+warning at all. It turns red two weeks out.
+
+##### What the presence counter stores, and what it does not
+
+**Stored:** a random id the browser invents for its own tab, which side it is on
+(website or Studio), and a timestamp. Entries expire after three minutes and are
+deleted on the next read.
+
+**Not stored:** no cookie, no IP address, no user agent, no page or referrer,
+nothing that survives closing the tab, and nothing that can be joined up across
+visits. The id lives in `sessionStorage`, so it dies with the tab and is never
+the same twice.
+
+It answers *is anyone here right now*, and is built so that it cannot answer
+anything else — a presence light, not analytics. It sets no cookie, so it needs
+no cookie banner. If you would rather not have it at all, delete the
+`startPresence()` call in `src/main.tsx` and the two "right now" tiles simply
+stop counting; nothing else changes.
+
+Application counts begin from when the feature was added, and count the website
+confirming a successful send. **The Web3Forms emails remain the record** of what
+was actually received — this is a convenience figure, not an authority, and a
+visitor who closes the tab mid-send may not be counted.
 
 #### How sign-in works, and why it is built this way
 

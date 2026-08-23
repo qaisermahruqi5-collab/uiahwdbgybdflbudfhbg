@@ -8,6 +8,9 @@ import { requireEnv } from './auth.mjs';
 
 const API = 'https://api.github.com';
 
+/** Set from the response header on the most recent authenticated call. */
+let lastSeenTokenExpiry = null;
+
 function repoParts() {
   const repo = requireEnv('GITHUB_REPO'); // e.g. owner/name
   const [owner, name] = repo.split('/');
@@ -26,6 +29,15 @@ async function gh(path, init = {}) {
       ...(init.headers ?? {}),
     },
   });
+
+  /*
+   * GitHub returns the fine-grained token's expiry date on every authenticated
+   * response. Catching it here is the only way to warn BEFORE the token lapses
+   * and every publish starts failing — which is exactly how this site lost an
+   * afternoon once already.
+   */
+  const expiry = res.headers.get('github-authentication-token-expiration');
+  if (expiry) lastSeenTokenExpiry = expiry;
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
@@ -217,6 +229,57 @@ export async function explainWriteFailure(err) {
   }
 
   return access?.reason ? `${raw} — ${access.reason}` : raw;
+}
+
+
+/**
+ * When does GITHUB_TOKEN expire, and how close is that?
+ *
+ * The header only arrives on an authenticated call, so make one if nothing
+ * has been seen yet this invocation.
+ */
+export async function tokenExpiry() {
+  if (!lastSeenTokenExpiry) {
+    const { owner, name } = repoParts();
+    try {
+      await gh(`/repos/${owner}/${name}`);
+    } catch {
+      /* diagnoseAccess reports why; this only wants the header. */
+    }
+  }
+  if (!lastSeenTokenExpiry) return null;
+
+  // The header looks like "2026-09-20 12:00:00 UTC".
+  const parsed = new Date(lastSeenTokenExpiry.replace(" UTC", "Z").replace(" ", "T"));
+  if (Number.isNaN(parsed.getTime())) return { raw: lastSeenTokenExpiry };
+
+  const days = Math.floor((parsed.getTime() - Date.now()) / 86400000);
+  return {
+    raw: lastSeenTokenExpiry,
+    iso: parsed.toISOString(),
+    daysLeft: days,
+    expired: days < 0,
+    soon: days >= 0 && days <= 14,
+  };
+}
+
+/** The most recent commit touching the editable content. */
+export async function lastPublish() {
+  const { owner, name } = repoParts();
+  try {
+    const commits = await gh(
+      `/repos/${owner}/${name}/commits?path=content&per_page=1&sha=main`
+    );
+    const top = Array.isArray(commits) ? commits[0] : null;
+    if (!top) return null;
+    return {
+      when: top.commit?.committer?.date ?? top.commit?.author?.date ?? null,
+      // Commit messages are multi-line; the subject line is the useful part.
+      message: String(top.commit?.message ?? '').split(/\r?\n/)[0].slice(0, 160),
+    };
+  } catch {
+    return null;
+  }
 }
 
 

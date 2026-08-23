@@ -22,6 +22,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { SITE, whatsappLink } from '@/config/site';
+import { reportFormSubmitted } from '@/lib/presence';
 import { countries } from '@/data/countries';
 import type { Country } from '@/data/countries';
 import type { Program } from '@/data/content';
@@ -671,6 +672,11 @@ export default function RegistrationForm() {
         (data as { success?: boolean }).success === true;
 
       if (succeeded) {
+        /* Tell the academy's own dashboard that an application arrived.
+           Fire-and-forget, and it carries no applicant data — only the fact
+           that one was sent. A failure here must never reach the visitor. */
+        reportFormSubmitted();
+
         // Arm the duplicate guard only once the application is actually delivered
         lastSubmitAtRef.current = Date.now();
         lastSubmitSignatureRef.current = signature;
