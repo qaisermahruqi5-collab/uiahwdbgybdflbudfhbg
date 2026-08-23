@@ -2,6 +2,17 @@
   "_comment": "Academy news, newest first. Edited by the admin dashboard and the Telegram bot. 'date' is ISO (YYYY-MM-DD); the displayed date is formatted per language automatically. Arabic fields are optional - if blank, the English text is shown.",
   "items": [
     {
+      "id": "post-mt5hhhpd",
+      "date": "2026-08-23",
+      "category": "3",
+      "categoryAr": "4",
+      "title": "1",
+      "titleAr": "2",
+      "excerpt": "5",
+      "excerptAr": "6",
+      "image": null
+    },
+    {
       "id": "registration-open",
       "date": "2026-08-10",
       "category": "Registration",
