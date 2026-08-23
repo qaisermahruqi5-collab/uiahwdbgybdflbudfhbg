@@ -92,7 +92,7 @@ Upload **everything inside `dist/`** to your host:
 
 - [ ] **Domain:** replace the placeholder domain in `public/sitemap.xml` and `public/robots.txt`, and set the absolute `og:image` URL in `index.html` (each spot is marked with a `TODO(owner)` comment).
 - [ ] **Content:** fill every `TODO(OWNER)` item in `src/data/content.ts` (and mirror it in `src/data/content-ar.ts`) — currently just the training venue name in the FAQ.
-- [ ] **News:** replace the three seeded posts using the dashboard at `/admin/` or the Telegram bot.
+- [ ] **News:** replace the three seeded posts using Studio at `/studio/` or the Telegram bot.
 - [ ] **Prices:** confirm the figures in `PRICE_BANDS` still match the current Programme & Pricing Guide before launch.
 - [ ] **Form test:** submit a real test registration and confirm the email arrives in your inbox.
 - [ ] **Spam protection:** enable reCAPTCHA for your key in the Web3Forms dashboard.
@@ -146,20 +146,50 @@ GitHub, which triggers a Netlify rebuild. **Changes appear on the site about
 1–2 minutes after you publish.** Every edit is a real commit, so anything can
 be reverted from the repo's history.
 
-### The dashboard
+### Studio — the editor
 
-Go to **`/admin/`** on your site (e.g. `yoursite.com/admin/`). It is
-`noindex`-ed and not linked from anywhere.
+Go to **`/studio/`** on your site (`genoaacademyom.com/studio/`). It is
+`noindex`-ed and linked from nowhere. `/admin/` redirects here.
 
-- **News** — add, edit, reorder and delete posts; drag a photo straight onto a
+- **News** — add, edit, reorder and delete posts; drop a photo straight onto a
   post. Photos are resized in your browser before upload, so a 12MP phone
   picture never travels at full size.
-- **Calendar** — change each squad's days, winter/summer slots and session
+- **Calendar** — change each squad's days, winter and summer slots and session
   length, plus the term weeks. Squads cannot be added or removed here; that is
   a code change, deliberately.
+- **Bot** — connect or re-connect the Telegram webhook in one click.
 - Arabic sits beside every English field. **Leave Arabic blank and the English
   text is shown to Arabic visitors** — nothing breaks.
 - Click **Publish**, then re-enter the admin passcode.
+
+#### How sign-in works, and why it is built this way
+
+Signing in is an **ordinary HTML form POST**, not a background `fetch`. This is
+the important part of the design, and it is worth knowing why.
+
+The previous dashboard signed in with `fetch()`. A fetch that is blocked or
+stalled never settles, never throws and fires no event — so the page had
+nothing to react to and nothing to display, and the button simply sat there
+reading "Signing in…" forever. No amount of better error handling could catch
+a failure that produces no signal at all.
+
+A form POST cannot fail that way. The browser owns the navigation: it either
+lands on the desk or shows its own error page. Sign-in works with JavaScript
+switched off entirely, and every failure is rendered by the server, so a
+broken script cannot hide it.
+
+Three further defences sit behind that:
+
+| Defence | Against |
+|---|---|
+| Every route answers on two paths — `/studio-io/*` and the older `/api/admin/*` — and the editor falls back automatically | Ad blockers and filter lists that match on URL shape. `/api/admin/*` is a common rule, and a request killed that way never reaches the network |
+| Sessions are accepted from an `Authorization` header as well as the cookie | Browsers that silently discard a `Secure` `SameSite` cookie (Safari tracking prevention, "block all cookies", locked-down profiles) |
+| Every request has a hard 25-second cap, and every failure puts a sentence on screen | Anything that stalls rather than fails |
+
+**`/studio/check.html`** runs all of those probes in your own browser and
+reports what does and does not work. It needs no passcode, has no side
+effects, and cannot consume a sign-in attempt. It is the first thing to open
+if anything misbehaves.
 
 ### The Telegram bot
 
@@ -213,49 +243,31 @@ Set in **Netlify → Site configuration → Environment variables**, all scopes:
 | `TELEGRAM_BOT_TOKEN` | From BotFather |
 | `TELEGRAM_WEBHOOK_SECRET` | Long random string, also given to Telegram below |
 
-### If you cannot sign in to `/admin/`
+### If you cannot sign in to `/studio/`
 
-The sign-in screen now tells you which of these it is. Read the red message
-under the passcode box before changing anything.
+Open **`/studio/check.html`** first — it tells you in seconds whether this is
+a server problem or a browser problem. Then match the message you saw:
 
-| What the screen says | What is actually wrong |
+| What you see | What is actually wrong |
 |---|---|
-| *"This site is not finished being set up: … is not set on the server"* | That environment variable is missing in Netlify. Add it (**all scopes**) and redeploy. **Retrying the passcode cannot help** — no passcode matches when none is configured. |
-| *"Incorrect passcode. N attempt(s) left."* | The passcode really is wrong. `ADMIN_PASSWORD` in Netlify is the exact string to type — no quotes, and watch for a trailing space when pasting. |
-| *"Too many incorrect attempts…"* | Five wrong tries locks **your IP** for an hour. The counter lives in Netlify Blobs, so redeploying does **not** clear it — either wait it out, or sign in from a different network (a phone hotspot counts as a different IP). |
-| *"…the sign-in cookie requires https"* | The site is being served over `http://`. Netlify → Domain management → HTTPS, provision the certificate, turn on **Force HTTPS**. |
-| *"Signed in, but GITHUB_TOKEN … is not set"* | Sign-in worked; the editor just cannot reach the content. Add the GitHub variables and redeploy. |
-| *"The sign-in function is not deployed"* | The build did not publish the functions. Check Netlify → Deploys succeeded, and that the site is connected to this repository rather than a dragged-in `dist/` folder. |
-| Button reads **"Signing in…"** | Working — the function is cold-starting. Give it up to 25 seconds. Do **not** press again; extra presses are ignored, but on builds before 9 each one spent an attempt. |
-| *"The server did not answer within 25 seconds"* | The request hung. Check your connection and try **once** more. |
-| Nothing at all happens, and no build stamp shows under the button | `/admin/app.js` never ran. Hard-refresh (Ctrl+Shift+R). If the stamp is still blank, check the browser console. |
-| *"Heads up: ADMIN_PASSWORD … is wrapped in quote marks"* | The value in Netlify includes the quotes or a stray space. Retype it without them and redeploy. |
+| *"This site is not finished being set up: … is not set"* | That environment variable is missing in Netlify. Add it (**all scopes**) and redeploy. **Retrying the passcode cannot help** — no passcode matches when none is configured. |
+| *"Incorrect passcode. N attempt(s) left."* | The passcode really is wrong. `ADMIN_PASSWORD` in Netlify is the exact string to type — check for wrapping quotes or a trailing space, which count as part of the value. |
+| *"Too many incorrect attempts…"* | Five wrong tries locks **your IP** for an hour. The counter lives in Netlify Blobs, so redeploying does **not** clear it — wait it out, or sign in from another network (a phone hotspot is a different IP). |
+| *"…the sign-in cookie requires https"* | The site was served over `http://`. Netlify → Domain management → HTTPS, provision the certificate, turn on **Force HTTPS**. |
+| Signed in, but the desk says the session was not accepted | The cookie did not stick. The header-token fallback normally covers this; if it persists, check `/studio/check.html` for the cookie test. |
+| Both paths time out in the connection check | Something between the browser and the site is blocking requests. Try a private window with extensions off, another browser, then mobile data. |
 
-The current editor build is **9**. The small grey text under the **Sign in**
-button is that stamp. If
-it does not change after a deploy, you are looking at a cached copy of the old
-page — hard-refresh before debugging anything else.
+The grey text under the **Sign in** button is the build stamp. If it does not
+change after a deploy, you are looking at a cached page — hard-refresh
+(Ctrl+Shift+R) before debugging anything else.
 
-**`/api/admin/setup-check`** answers the same question *without* signing in —
-open it in a browser tab. It lists the names of any environment variables that
-are still unset, and never returns a value:
-
-```json
-{ "canSignIn": false, "missing": { "signIn": ["ADMIN_PASSWORD"] }, "ready": false }
-```
-
-`canSignIn: false` means no passcode can possibly work yet — fix the listed
-variable rather than retrying. The login screen calls this on load and shows
-the same message, so a half-configured site now says so before you type.
-
-Once you are signed in, **`/api/admin/health`** goes further: it also confirms
-GitHub is reachable and that the two content files exist.
-
----
+`/api/admin/setup-check` (and `/studio-io/check`) reports which environment
+variables are unset, by name and without ever returning a value. Once signed
+in, `/api/admin/health` adds whether GitHub is reachable.
 
 ### Connecting the Telegram bot
 
-Open the dashboard at `/admin/`, go to the **Bot** tab, and press
+Open Studio at `/studio/`, go to the **Bot** tab, and press
 **Connect bot**. That is the whole procedure — no terminal, and no handling the
 bot token yourself. The function already holds the token and the webhook
 secret, and tells Telegram where to deliver messages.
