@@ -12,7 +12,7 @@ const GITHUB_ENV = ['GITHUB_REPO', 'GITHUB_TOKEN'];
 function missingGithubConfig() {
   return GITHUB_ENV.filter((name) => !process.env[name]);
 }
-import { readJson, writeJson, diagnoseAccess, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
+import { readJson, writeJson, diagnoseAccess, explainWriteFailure, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_TEXT = 4000;
@@ -193,7 +193,12 @@ export default async function handler(request) {
       written.push('schedule');
     }
   } catch (err) {
-    return json({ error: String(err.message ?? err) }, 400);
+    // A rejected GitHub write and a rejected field both land here. The first
+    // needs the token explained; the second is already a plain sentence, and
+    // explainWriteFailure passes those through untouched.
+    const message = await explainWriteFailure(err);
+    const isPermission = /cannot write|invalid or has expired/.test(message);
+    return json({ error: message }, isPermission ? 502 : 400);
   }
 
   if (written.length === 0) return json({ error: 'Nothing to save' }, 400);

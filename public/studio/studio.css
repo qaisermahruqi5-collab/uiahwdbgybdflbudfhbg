@@ -423,6 +423,18 @@ body {
 }
 
 .flash[hidden] { display: none; }
+
+/* Long messages: a readable block rather than a pill. */
+.flash.block {
+  border-radius: var(--radius);
+  text-align: left;
+  max-width: min(680px, calc(100vw - 40px));
+  padding: 14px 18px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-height: 55vh;
+  overflow-y: auto;
+}
 .flash.good { border-color: rgb(53 201 139 / 0.45); color: #b9f5db; background: rgb(53 201 139 / 0.12); }
 .flash.bad  { border-color: rgb(226 55 74 / 0.5); color: #ffd9de; background: rgb(226 55 74 / 0.12); }
 

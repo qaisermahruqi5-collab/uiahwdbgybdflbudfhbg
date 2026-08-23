@@ -139,6 +139,87 @@ export async function diagnoseAccess() {
   return { repoVisible: false, reason: `GitHub returned ${res.status} for ${owner}/${name}.` };
 }
 
+/**
+ * Turn a failed WRITE into something a person can act on.
+ *
+ * GitHub answers a refused write with "Resource not accessible by personal
+ * access token", which names neither the permission nor the repository. Worse,
+ * reading a PUBLIC repository needs no permission at all, so a token with no
+ * write access loads the editor perfectly and only fails at the moment you
+ * press Publish — which reads as "publishing is broken" rather than "the token
+ * cannot write".
+ *
+ * Ask GitHub what the token can actually do, and say so.
+ */
+export async function explainWriteFailure(err) {
+  const raw = String(err?.message ?? err);
+
+  // Not a GitHub transport error (validation, JSON shape): pass it through.
+  if (!/^GitHub /.test(raw)) return raw;
+
+  const { owner, name } = repoParts();
+
+  let access;
+  try {
+    access = await diagnoseAccess();
+  } catch {
+    access = null;
+  }
+
+  const is = (code) => raw.includes(`: ${code} `) || raw.includes(`: ${code}{`);
+
+  if (is(401)) {
+    return (
+      `GITHUB_TOKEN is invalid or has expired, so nothing can be published. ` +
+      `Generate a new token, update GITHUB_TOKEN in Netlify, and redeploy.`
+    );
+  }
+
+  if (is(403)) {
+    return (
+      `GitHub refused the write: the token cannot write to ${owner}/${name}. ` +
+      `Reading worked because that repository is public, which needs no permission — ` +
+      `only writing does, which is why this appears at Publish and not before.
+
+` +
+      `Fix it on GitHub under Settings > Developer settings > Personal access tokens > ` +
+      `Fine-grained tokens, opening the token used here:
+` +
+      `1. Repository access must explicitly include ${owner}/${name}.
+` +
+      `2. Repository permissions > Contents must be "Read and write", not "Read-only".
+` +
+      `3. The token must belong to ${owner}. A fine-grained token only reaches ` +
+      `repositories owned by the account it was created under, so a token made on a ` +
+      `different account can read this public repo but can never write to it.
+` +
+      `4. The token must not be expired.
+
+` +
+      `Permission changes apply immediately — no new token and no redeploy needed. ` +
+      `Only replacing the token itself needs GITHUB_TOKEN updated in Netlify.`
+    );
+  }
+
+  if (is(404)) {
+    return (
+      `GitHub could not find ${owner}/${name} for writing. Check GITHUB_REPO reads ` +
+      `exactly "${owner}/${name}", and that the branch main exists.` +
+      (access?.reason ? ` ${access.reason}` : '')
+    );
+  }
+
+  if (is(409) || is(422)) {
+    return (
+      `GitHub rejected the write because the file changed since the editor loaded it. ` +
+      `Reload Studio so it picks up the current version, then publish again.`
+    );
+  }
+
+  return access?.reason ? `${raw} — ${access.reason}` : raw;
+}
+
+
 export const NEWS_PATH = 'content/news.json';
 export const SCHEDULE_PATH = 'content/schedule.json';
 export const UPLOAD_DIR = 'public/uploads';

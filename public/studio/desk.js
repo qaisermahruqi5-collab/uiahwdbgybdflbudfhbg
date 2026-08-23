@@ -29,6 +29,7 @@ const ROUTES = {
   upload: ['/studio-io/upload', '/api/admin/upload'],
   bot: ['/studio-io/bot', '/api/admin/telegram'],
   session: ['/studio-io/session', '/api/admin/login'],
+  health: ['/studio-io/health', '/api/admin/health'],
 };
 
 /* Once a spelling answers, keep using it. */
@@ -141,7 +142,9 @@ function touched() {
 function flash(message, kind = 'good') {
   const node = $('#flash');
   node.textContent = message;
-  node.className = `flash ${kind}`;
+  // A pill cannot hold a paragraph. Anything long enough to wrap gets a block
+  // instead — the GitHub permission explanation is several lines of steps.
+  node.className = `flash ${kind}${String(message).length > 90 ? ' block' : ''}`;
   node.hidden = !message;
   if (message && kind === 'good') {
     setTimeout(() => {
@@ -721,6 +724,37 @@ async function boot() {
   $('#loading').hidden = true;
   $('#panel-news').hidden = false;
   flash(`Signed in — ${BUILD}`);
+
+  checkCanPublish();
+}
+
+/*
+ * Reading this repository needs no permission, because it is public. Writing
+ * does. So a token without write access loads the editor perfectly and only
+ * fails at Publish — after the work is typed. Ask up front instead.
+ */
+async function checkCanPublish() {
+  let res;
+  try {
+    res = await send('health', {}, 15000);
+  } catch {
+    return; // Not worth reporting: the editor itself is working.
+  }
+  if (!res.ok) return;
+
+  const health = await res.json().catch(() => null);
+  const access = health?.access;
+  if (!access || access.canWrite !== false) return;
+
+  flash(
+    'Heads up before you start: this site can READ your content but cannot ' +
+      'PUBLISH it. The GitHub token has no write access to ' +
+      `${health.repo}, so Publish will be refused. ` +
+      (access.reason ?? '') +
+      ' Fix that on GitHub first — Settings > Developer settings > Personal ' +
+      'access tokens > Fine-grained tokens > Contents: Read and write.',
+    'bad'
+  );
 }
 
 boot();

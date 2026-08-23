@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { passcodeMatches, requireEnv, missingAuthConfig } from './lib/auth.mjs';
-import { readJson, writeJson, writeFile, NEWS_PATH, SCHEDULE_PATH, UPLOAD_DIR } from './lib/github.mjs';
+import { readJson, writeJson, writeFile, explainWriteFailure, NEWS_PATH, SCHEDULE_PATH, UPLOAD_DIR } from './lib/github.mjs';
 import {
   isUnlocked, unlock, lock, listUnlocked,
   checkLockout, recordFailure, clearFailures,
@@ -427,7 +427,21 @@ export default async function handler(request) {
     }
   } catch (err) {
     console.error('telegram handler failed', err);
-    await send(chatId, '⚠️ Something went wrong. Nothing was published. Try again.').catch(() => undefined);
+
+    /*
+     * "Try again" was the wrong answer to the commonest failure here. Every
+     * publish goes through the same GitHub write as the dashboard, so when the
+     * token cannot write, retrying fails identically and for ever. Send the
+     * real reason — the bot is passcode-gated, so only the owner sees it.
+     */
+    const why = await explainWriteFailure(err).catch(() => String(err?.message ?? err));
+    const safe = String(why)
+      .replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+      .slice(0, 3000);
+
+    await send(chatId, `⚠️ Nothing was published.
+
+${safe}`).catch(() => undefined);
   }
 
   return new Response('ok', { status: 200 });

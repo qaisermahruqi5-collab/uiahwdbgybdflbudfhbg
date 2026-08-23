@@ -4,7 +4,7 @@
 // needs no native image dependencies.
 
 import { hasSession, passcodeMatches, json, authConfigError } from './lib/auth.mjs';
-import { writeFile, UPLOAD_DIR } from './lib/github.mjs';
+import { writeFile, explainWriteFailure, UPLOAD_DIR } from './lib/github.mjs';
 import { randomBytes } from 'node:crypto';
 
 const MAX_BYTES = 3 * 1024 * 1024; // per file, after browser-side resize
@@ -54,16 +54,22 @@ export default async function handler(request) {
   // Content-addressed-ish name: readable, but collision-proof across posts.
   const stem = `${safeSlug(body.filename)}-${randomBytes(4).toString('hex')}`;
 
-  await writeFile({
-    path: `${UPLOAD_DIR}/${stem}.webp`,
-    contentBase64: webpBase64,
-    message: `Add news photo ${stem}.webp`,
-  });
-  await writeFile({
-    path: `${UPLOAD_DIR}/${stem}.jpg`,
-    contentBase64: jpgBase64,
-    message: `Add news photo ${stem}.jpg`,
-  });
+  // Uploading is a write too, so it fails on exactly the same token
+  // permission as publishing. Say the same thing rather than a bare 500.
+  try {
+    await writeFile({
+      path: `${UPLOAD_DIR}/${stem}.webp`,
+      contentBase64: webpBase64,
+      message: `Add news photo ${stem}.webp`,
+    });
+    await writeFile({
+      path: `${UPLOAD_DIR}/${stem}.jpg`,
+      contentBase64: jpgBase64,
+      message: `Add news photo ${stem}.jpg`,
+    });
+  } catch (err) {
+    return json({ error: await explainWriteFailure(err) }, 502);
+  }
 
   return json({
     ok: true,
