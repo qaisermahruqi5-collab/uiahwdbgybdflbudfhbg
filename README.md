@@ -233,26 +233,42 @@ if anything misbehaves.
 
 ### The Telegram bot
 
-Message your bot. It ignores everyone until they send the admin passcode, then
-unlocks that chat for 12 hours and deletes the passcode message.
+Message the bot and send the admin passcode. It replies with a menu, and from
+there **everything is a button** — you never have to remember a command.
 
-| Command | What it does |
+| Button | What happens |
 |---|---|
-| `/news` | Guided post: headline → summary → photo → Arabic → preview → `/publish` |
-| `/schedule` | Change one squad's times |
-| `/list` | Show recent posts and their ids |
-| `/delete <id>` | Remove a post |
-| `/who` | Who is signed in right now |
-| `/revoke <id>` | Sign someone out |
-| `/lock` | Sign yourself out |
-| `/cancel` | Abandon the current draft |
+| 📝 Write a news post | Four short answers: headline, summary, photo (optional), Arabic (optional). You see the finished post and nothing goes live until you tap **Publish**. |
+| 🗓 Change training times | Pick a squad from the buttons, then change its winter slot, summer slot and session length. Skip anything you want left alone. |
+| 📰 Recent posts | The latest posts, each with a delete button — no ids to copy. |
+| ❓ How this works | The same explanation, in the chat. |
+| 🔒 Sign out | Ends the 12-hour session. |
 
-Bot photos are JPEG only (converting to WebP would need a native image library
-in the function); the site treats WebP as optional and serves the JPEG. Upload
-through the dashboard instead if you want both formats.
+Typing still works for anyone who prefers it — `/menu`, `/news`, `/schedule`,
+`/list`, `/skip`, `/publish`, `/cancel`, `/help`, `/lock` — and Telegram's ☰
+menu lists them. Typed and tapped run the same code, so the two cannot drift
+apart.
+
+**Your work is not lost by accident.** Tapping the menu or typing a command
+mid-draft no longer throws the draft away; the bot says you are in the middle
+of something and offers to cancel. Drafts expire after two hours so a forgotten
+one cannot swallow the next thing you send.
+
+**Skipping means the right thing wherever you are.** At the photo step it moves
+past the photo; at the Arabic step it skips both Arabic fields. Where nothing
+can be skipped — the headline, the summary — it says so rather than storing the
+word as your answer.
 
 Arabic **times** are mirrored automatically (`PM` → `مساءً`). Arabic **prose**
-is never machine-translated — the bot asks for it, or falls back to English.
+is never machine-translated: the bot asks, and blank Arabic falls back to
+English on the website. Photos sent through Telegram are JPEG only; upload
+through Studio if you want a WebP twin as well.
+
+> **After deploying a bot change, press Connect bot in Studio once.** Button
+> taps arrive as `callback_query` updates, and Telegram only delivers the update
+> types the webhook asked for at registration. A webhook registered before the
+> buttons existed answers typed messages but silently ignores every tap. The
+> Status & Bot tab detects exactly this and tells you to reconnect.
 
 ### How access works
 

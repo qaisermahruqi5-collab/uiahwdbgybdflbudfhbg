@@ -663,9 +663,27 @@ async function refreshBot() {
   }
 
   const info = await res.json();
-  dot.className = `dot ${info.connected ? 'on' : 'off'}`;
   const queued = info.info?.pendingUpdateCount;
   const lastError = info.info?.lastErrorMessage;
+
+  /*
+   * A webhook registered by an older version does not ask Telegram for
+   * callback_query, so button taps are never delivered and the bot appears
+   * to ignore every button while still answering typed messages. That reads
+   * as "connected but broken", so name it.
+   */
+  const updates = info.info?.allowedUpdates;
+  const takesTaps = !Array.isArray(updates) || updates.includes('callback_query');
+
+  if (info.connected && !takesTaps) {
+    dot.className = 'dot off';
+    say.textContent =
+      'Connected, but registered before the buttons existed — taps are not being ' +
+      'delivered, so the bot will ignore every button. Press Connect bot to fix it.';
+    return;
+  }
+
+  dot.className = `dot ${info.connected ? 'on' : 'off'}`;
   say.textContent = info.connected
     ? `Connected${queued ? `, ${queued} message(s) queued` : ''}.${lastError ? ` Last error: ${lastError}` : ''}`
     : 'Not connected. Press Connect bot.';

@@ -26,6 +26,9 @@ function safeInfo(info) {
     lastErrorMessage: info.last_error_message ?? null,
     lastErrorDate: info.last_error_date ?? null,
     maxConnections: info.max_connections,
+    // Studio warns when this is missing callback_query: it means the webhook
+    // was registered by an older version and the buttons will not respond.
+    allowedUpdates: info.allowed_updates ?? null,
   };
 }
 
@@ -84,7 +87,13 @@ export default async function handler(request) {
       body: JSON.stringify({
         url: expectedUrl,
         secret_token: process.env.TELEGRAM_WEBHOOK_SECRET,
-        allowed_updates: ['message'],
+        /*
+         * callback_query is what delivers BUTTON TAPS. It was missing, so
+         * every inline button in the bot was dead on arrival — Telegram
+         * dropped the tap and the bot never heard about it. Re-registering
+         * the webhook is what applies this.
+         */
+        allowed_updates: ['message', 'callback_query'],
         drop_pending_updates: true,
       }),
     });
@@ -92,6 +101,24 @@ export default async function handler(request) {
     if (!result.ok) {
       return json({ error: result.description ?? 'Telegram refused to set the webhook.' }, 502);
     }
+
+    // The ☰ menu in Telegram. Discoverability for anyone who would rather
+    // type than tap, and it costs one call at connect time.
+    await fetch(tgApi('setMyCommands'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commands: [
+          { command: 'menu', description: 'Show the main menu' },
+          { command: 'news', description: 'Write a news post' },
+          { command: 'schedule', description: 'Change training times' },
+          { command: 'list', description: 'Recent posts' },
+          { command: 'cancel', description: 'Throw away the current draft' },
+          { command: 'help', description: 'How this works' },
+          { command: 'lock', description: 'Sign out' },
+        ],
+      }),
+    }).catch(() => undefined);
 
     const check = await (await fetch(tgApi('getWebhookInfo'))).json();
     return json({ ok: true, connected: check.result?.url === expectedUrl, expectedUrl, info: safeInfo(check.result) });

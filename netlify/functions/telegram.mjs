@@ -1,17 +1,48 @@
 // ═══════════════════════════════════════════════════════════════════
-// TELEGRAM BOT — publish academy news and update the training schedule
-// from a phone.
+// TELEGRAM BOT — publish academy news and change training times from a
+// phone.
 //
 // SECURITY MODEL: the bot is publicly reachable (bot usernames are
 // searchable), so there is NO pre-shared allowlist. Anyone may open a
 // chat, but nothing happens until they send the admin passcode. A
-// correct passcode unlocks that chat for 12h and auto-adds it to the
-// authorised list; wrong ones are rate limited into a lockout. The
-// passcode message is deleted from the chat immediately.
+// correct passcode unlocks that chat for 12h; wrong ones are rate
+// limited into a lockout, and the passcode message is deleted at once.
+//
+// ── DESIGN NOTES, FROM WHAT WENT WRONG BEFORE ──────────────────────
+//
+// 1. YOU TAP, YOU DO NOT MEMORISE. The old bot was a set of typed
+//    commands with no menu, so using it meant remembering /news,
+//    /schedule, /skip, /publish and an opaque post id for /delete.
+//    Everything is now buttons; typing still works but is never
+//    required.
+//
+// 2. A COMMAND MUST NOT EAT YOUR WORK. The old handler wiped the
+//    in-progress draft on ANY command — so /list, /help, or a typo
+//    like /nesw silently destroyed a half-written post. Commands now
+//    refuse to run mid-draft and say so.
+//
+// 3. /skip WAS BEING STORED AS TEXT. It was excluded from command
+//    routing, so at the headline step it became the headline. Skipping
+//    is a button now, and the words are rejected where they make no
+//    sense.
+//
+// 4. BEING LOCKED OUT FOR TYPING /help. Any text sent before unlocking
+//    counted as a wrong passcode attempt, so pressing the menu button
+//    five times locked you out for an hour. Commands are no longer
+//    treated as passcode guesses.
+//
+// 5. DRAFTS ARE NOT IMMORTAL. A draft left overnight used to swallow
+//    the next thing you typed. They now expire.
+//
+// Buttons require `callback_query` in the webhook's allowed_updates —
+// see admin-telegram.mjs. Without it Telegram delivers taps nowhere.
 // ═══════════════════════════════════════════════════════════════════
 
 import { passcodeMatches, requireEnv, missingAuthConfig } from './lib/auth.mjs';
-import { readJson, writeJson, writeFile, explainWriteFailure, NEWS_PATH, SCHEDULE_PATH, UPLOAD_DIR } from './lib/github.mjs';
+import {
+  readJson, writeJson, writeFile, explainWriteFailure,
+  NEWS_PATH, SCHEDULE_PATH, UPLOAD_DIR,
+} from './lib/github.mjs';
 import {
   isUnlocked, unlock, lock, listUnlocked,
   checkLockout, recordFailure, clearFailures,
@@ -21,7 +52,10 @@ import { randomBytes } from 'node:crypto';
 
 const SQUADS = ['u6', 'u8', 'u10', 'u12', 'u14', 'u16'];
 
-/* ── Telegram API helpers ─────────────────────────────────────── */
+/** A draft older than this is stale; it must not swallow the next message. */
+const DRAFT_TTL_MS = 2 * 60 * 60 * 1000;
+
+/* ── Telegram API ─────────────────────────────────────────────── */
 
 async function tg(method, payload) {
   const res = await fetch(`https://api.telegram.org/bot${requireEnv('TELEGRAM_BOT_TOKEN')}/${method}`, {
@@ -33,29 +67,54 @@ async function tg(method, payload) {
 }
 
 const send = (chatId, text, extra = {}) =>
-  tg('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra });
+  tg('sendMessage', {
+    chat_id: chatId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    ...extra,
+  });
 
 const deleteMessage = (chatId, messageId) =>
   tg('deleteMessage', { chat_id: chatId, message_id: messageId }).catch(() => undefined);
 
-/** Escape user text before it goes back out inside parse_mode HTML. */
+/** Replace a message in place, so tapping a button does not spam the chat. */
+const editMessage = (chatId, messageId, text, extra = {}) =>
+  tg('editMessageText', {
+    chat_id: chatId,
+    message_id: messageId,
+    text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    ...extra,
+  }).catch(() => undefined);
+
+/** Telegram shows a spinner on the button until this is answered. */
+const answerTap = (id, text) =>
+  tg('answerCallbackQuery', { callback_query_id: id, ...(text ? { text } : {}) }).catch(() => undefined);
+
+/** Escape text before it goes back out under parse_mode HTML. */
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/** Inline keyboard from rows of [label, data] pairs. */
+const keys = (rows) => ({
+  reply_markup: {
+    inline_keyboard: rows.map((row) => row.map(([text, data]) => ({ text, callback_data: data }))),
+  },
+});
+
 /* ── Arabic helpers ───────────────────────────────────────────────
-   Times and durations are formulaic, so the bot mirrors them into
-   Arabic automatically. Free prose is never machine-translated — the
-   bot asks for it, and blank Arabic falls back to English on the site. */
+   Times and durations are formulaic, so they are mirrored automatically.
+   Free prose is never machine-translated: the bot asks, and blank Arabic
+   falls back to English on the website. */
 
 const arTime = (s) => String(s ?? '').replace(/\bPM\b/gi, 'مساءً').replace(/\bAM\b/gi, 'صباحًا');
 const arDuration = (s) => String(s ?? '').replace(/\bminutes?\b/gi, 'دقيقة');
 
 /* ── Content operations ───────────────────────────────────────── */
 
-function slugify(title) {
-  return (
-    String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'post'
-  );
-}
+const slugify = (title) =>
+  String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'post';
 
 async function publishDraft(draft, who) {
   const { sha, data } = await readJson(NEWS_PATH);
@@ -103,279 +162,674 @@ async function saveTelegramPhoto(photoSizes) {
     message: `Add news photo ${stem}.jpg via Telegram`,
   });
 
-  // No WebP twin: converting would need a native image library. The site
-  // treats the WebP source as optional and serves this JPEG.
+  // No WebP twin: converting needs a native image library. The site treats
+  // WebP as optional and serves this JPEG.
   return { jpg: `/uploads/${stem}.jpg`, width: largest.width, height: largest.height, alt: '' };
 }
 
-/* ── Conversation ─────────────────────────────────────────────── */
+/* ── Screens ──────────────────────────────────────────────────── */
 
-const HELP = [
-  '<b>Genoa Academy bot</b>',
+const MENU_TEXT = [
+  '<b>Genoa Academy</b>',
   '',
-  '/news — post an academy update',
-  '/schedule — change a squad&#39;s training times',
-  '/list — show the latest posts',
-  '/delete &lt;id&gt; — remove a post',
-  '/who — who is currently signed in',
-  '/revoke &lt;id&gt; — sign someone out',
-  '/lock — sign yourself out now',
-  '/cancel — abandon what you are doing',
+  'What would you like to do?',
 ].join('\n');
 
-async function handleUnlock(chatId, text, messageId, from) {
-  // No passcode can match when the server has none configured. Say so
-  // instead of counting it as a wrong attempt and locking the chat.
-  const missing = missingAuthConfig();
-  if (missing.length > 0) {
-    await send(
-      chatId,
-      `⚠️ This bot is not finished being set up: ${missing.join(' and ')} ` +
-      `${missing.length > 1 ? 'are' : 'is'} not set on the server. Add ` +
-      `${missing.length > 1 ? 'them' : 'it'} in Netlify under Site configuration > ` +
-      'Environment variables and redeploy. Your passcode is not the problem.'
-    );
-    return;
-  }
+const MENU_KEYS = keys([
+  [['📝 Write a news post', 'go:news']],
+  [['🗓 Change training times', 'go:sched']],
+  [['📰 Recent posts', 'go:list']],
+  [['❓ How this works', 'go:help'], ['🔒 Sign out', 'go:lock']],
+]);
 
-  const state = await checkLockout(chatId);
-  if (state.lockedOut) {
-    await send(chatId, `🚫 Too many wrong passcodes. Try again in ${state.minutes} minute(s).`);
-    return;
-  }
+const menu = (chatId) => send(chatId, MENU_TEXT, MENU_KEYS);
 
-  if (passcodeMatches(text)) {
-    await deleteMessage(chatId, messageId); // do not leave it sitting in the chat
-    await clearFailures(chatId);
-    const name = [from?.first_name, from?.last_name].filter(Boolean).join(' ') || from?.username || '';
-    await unlock(chatId, name);
-    await send(chatId, `✅ Unlocked for 12 hours. Your passcode message was deleted.\n\n${HELP}`);
-    return;
-  }
+const HELP_TEXT = [
+  '<b>How this works</b>',
+  '',
+  'Everything is a button — you never have to remember a command.',
+  '',
+  '<b>Writing a post</b> takes four short answers: headline, summary,',
+  'a photo (optional), and Arabic (optional). You see the finished post',
+  'before anything goes live, and nothing is published until you tap',
+  '<b>Publish</b>.',
+  '',
+  '<b>Training times</b> lets you pick a squad and change its winter slot,',
+  'summer slot and session length. Arabic times are filled in for you.',
+  '',
+  'Leave Arabic blank and Arabic visitors simply see the English — nothing',
+  'breaks.',
+  '',
+  'Changes appear on the website about a minute after publishing.',
+  '',
+  'Tap <b>Cancel</b> at any point to throw a draft away. Your work is never',
+  'lost by opening the menu.',
+].join('\n');
 
-  await deleteMessage(chatId, messageId);
-  const after = await recordFailure(chatId);
-  await send(
+/* ── Draft helpers ────────────────────────────────────────────── */
+
+const stamp = (draft) => ({ ...draft, at: Date.now() });
+
+/** A draft, unless it has gone stale. */
+async function liveDraft(chatId) {
+  const draft = await getDraft(chatId);
+  if (!draft) return null;
+  if (draft.at && Date.now() - draft.at > DRAFT_TTL_MS) {
+    await setDraft(chatId, undefined);
+    return null;
+  }
+  return draft;
+}
+
+const CANCEL = [['✖️ Cancel', 'go:cancel']];
+const SKIP_CANCEL = (skipData) => [[['⏭ Skip', skipData]], CANCEL];
+
+/* ── News flow ────────────────────────────────────────────────── */
+
+const NEWS_STEPS = 4;
+
+function newsPreview(draft) {
+  return [
+    '<b>Ready to publish</b>',
+    '',
+    `<b>${esc(draft.title)}</b>`,
+    esc(draft.excerpt),
+    '',
+    draft.image ? '📷 Photo attached' : '📷 No photo',
+    draft.titleAr ? '🇴🇲 Arabic included' : '🇬🇧 English only (Arabic visitors see the English)',
+    '',
+    'Nothing is live yet.',
+  ].join('\n');
+}
+
+const PREVIEW_KEYS = keys([
+  [['🚀 Publish', 'pub:news']],
+  [['✖️ Cancel', 'go:cancel']],
+]);
+
+async function startNews(chatId) {
+  await setDraft(chatId, stamp({ kind: 'news', step: 'title' }));
+  return send(
     chatId,
-    after.lockedOut
-      ? '🚫 Too many wrong passcodes. This chat is locked for 1 hour.'
-      : `❌ Wrong passcode. ${after.remaining} attempt(s) left.`
+    [
+      `📝 <b>New post</b>  ·  step 1 of ${NEWS_STEPS}`,
+      '',
+      'Send me the <b>headline</b>, in English.',
+      '',
+      '<i>For example: U14 squad win the opening fixture</i>',
+    ].join('\n'),
+    keys([CANCEL])
   );
 }
 
-async function handleCommand(chatId, text, from) {
-  const [rawCmd, ...rest] = text.trim().split(/\s+/);
-  const arg = rest.join(' ').trim();
-  const who = from?.username ? `@${from.username}` : String(chatId);
-
-  switch (rawCmd.toLowerCase().replace(/@.*$/, '')) {
-    case '/start':
-    case '/help':
-      return send(chatId, HELP);
-
-    case '/lock':
-      await lock(chatId);
-      return send(chatId, '🔒 Signed out. Send the passcode again to come back.');
-
-    case '/who': {
-      const list = await listUnlocked();
-      const lines = list.map((u) => `• <code>${esc(u.id)}</code> ${esc(u.name)} — ${u.expiresInMinutes} min left`);
-      return send(chatId, lines.length ? `<b>Signed in now</b>\n${lines.join('\n')}` : 'Nobody is signed in.');
-    }
-
-    case '/revoke': {
-      if (!arg) return send(chatId, 'Usage: <code>/revoke 123456789</code> — get the id from /who');
-      await lock(arg);
-      return send(chatId, `🔒 Signed out <code>${esc(arg)}</code>.`);
-    }
-
-    case '/cancel':
-      await setDraft(chatId, undefined);
-      return send(chatId, 'Cancelled.');
-
-    case '/list': {
-      const { data } = await readJson(NEWS_PATH);
-      const items = (data?.items ?? []).slice(0, 10);
-      if (!items.length) return send(chatId, 'No posts yet.');
-      const lines = items.map((i) => `• <b>${esc(i.title)}</b>\n  <code>${esc(i.id)}</code> — ${esc(i.date)}`);
-      return send(chatId, `<b>Latest posts</b>\n\n${lines.join('\n')}`);
-    }
-
-    case '/delete': {
-      if (!arg) return send(chatId, 'Usage: <code>/delete post-id</code> — get the id from /list');
-      const { sha, data } = await readJson(NEWS_PATH);
-      const items = data?.items ?? [];
-      const next = items.filter((i) => i.id !== arg);
-      if (next.length === items.length) return send(chatId, `No post with id <code>${esc(arg)}</code>.`);
-      await writeJson({
-        path: NEWS_PATH,
-        data: { ...data, items: next },
-        sha,
-        message: `Delete news post "${arg}" via Telegram (${who})`,
-      });
-      return send(chatId, '🗑 Deleted. The site rebuilds in a minute or two.');
-    }
-
-    case '/news':
-      await setDraft(chatId, { kind: 'news', step: 'title' });
-      return send(chatId, '📝 <b>New post</b>\n\nSend the <b>headline</b> in English.\n\n/cancel to stop.');
-
-    case '/schedule':
-      await setDraft(chatId, { kind: 'schedule', step: 'squad' });
-      return send(
-        chatId,
-        `🗓 <b>Change training times</b>\n\nWhich squad? Reply with one of:\n${SQUADS.join(', ')}\n\n/cancel to stop.`
-      );
-
-    default:
-      return send(chatId, `Unknown command.\n\n${HELP}`);
-  }
-}
-
-async function handleNewsStep(chatId, message, draft, who) {
-  const text = (message.text ?? '').trim();
-  const skipped = text.toLowerCase() === '/skip';
+async function handleNewsStep(chatId, message, draft) {
+  const text = (message.text ?? message.caption ?? '').trim();
 
   switch (draft.step) {
-    case 'title':
-      if (!text) return send(chatId, 'Send the headline as text.');
-      await setDraft(chatId, { ...draft, title: text, step: 'excerpt' });
-      return send(chatId, 'Good. Now the <b>summary</b> — a short paragraph.');
+    case 'title': {
+      if (!text) return send(chatId, 'That needs to be text. Send the headline.', keys([CANCEL]));
+      if (text.startsWith('/')) {
+        return send(chatId, 'That looks like a command. Send the headline as ordinary text.', keys([CANCEL]));
+      }
+      await setDraft(chatId, stamp({ ...draft, title: text, step: 'excerpt' }));
+      return send(
+        chatId,
+        [
+          `📝 <b>${esc(text)}</b>  ·  step 2 of ${NEWS_STEPS}`,
+          '',
+          'Now the <b>summary</b> — a sentence or two that appears under the headline.',
+        ].join('\n'),
+        keys([CANCEL])
+      );
+    }
 
-    case 'excerpt':
-      if (!text) return send(chatId, 'Send the summary as text.');
-      await setDraft(chatId, { ...draft, excerpt: text, step: 'photo' });
-      return send(chatId, '📷 Send a <b>photo</b> for the post, or /skip.');
+    case 'excerpt': {
+      if (!text) return send(chatId, 'That needs to be text. Send the summary.', keys([CANCEL]));
+      if (text.startsWith('/')) {
+        return send(chatId, 'That looks like a command. Send the summary as ordinary text.', keys([CANCEL]));
+      }
+      await setDraft(chatId, stamp({ ...draft, excerpt: text, step: 'photo' }));
+      return send(
+        chatId,
+        [
+          `📷 <b>Photo</b>  ·  step 3 of ${NEWS_STEPS}`,
+          '',
+          'Send a photo for this post, or skip it.',
+        ].join('\n'),
+        keys(SKIP_CANCEL('skip:photo'))
+      );
+    }
 
     case 'photo': {
       if (message.photo?.length) {
         await send(chatId, 'Saving the photo…');
         const image = await saveTelegramPhoto(message.photo);
-        if (!image) return send(chatId, 'That photo would not save. Try a smaller one, or /skip.');
+        if (!image) {
+          return send(
+            chatId,
+            'That photo would not save — it may be too large. Try another, or skip.',
+            keys(SKIP_CANCEL('skip:photo'))
+          );
+        }
         image.alt = draft.title;
-        await setDraft(chatId, { ...draft, image, step: 'titleAr' });
-        return send(chatId, '✅ Photo saved.\n\nNow the <b>Arabic headline</b>, or /skip for English only.');
+        await setDraft(chatId, stamp({ ...draft, image, step: 'titleAr' }));
+        return askArabic(chatId, '✅ Photo saved.');
       }
-      if (!skipped) return send(chatId, 'Send a photo, or /skip.');
-      await setDraft(chatId, { ...draft, step: 'titleAr' });
-      return send(chatId, 'No photo. Now the <b>Arabic headline</b>, or /skip.');
-    }
-
-    case 'titleAr':
-      await setDraft(chatId, { ...draft, titleAr: skipped ? '' : text, step: 'excerptAr' });
-      return send(chatId, 'Now the <b>Arabic summary</b>, or /skip.');
-
-    case 'excerptAr': {
-      const finished = { ...draft, excerptAr: skipped ? '' : text, step: 'confirm' };
-      await setDraft(chatId, finished);
       return send(
         chatId,
-        [
-          '<b>Ready to publish</b>',
-          '',
-          `<b>${esc(finished.title)}</b>`,
-          esc(finished.excerpt),
-          '',
-          finished.image ? '📷 photo attached' : '— no photo',
-          finished.titleAr ? '🇴🇲 Arabic included' : '🇬🇧 English only (Arabic falls back to English)',
-          '',
-          'Send /publish to put it live, or /cancel.',
-        ].join('\n')
+        'That was not a photo. Send one as a photo, or skip.',
+        keys(SKIP_CANCEL('skip:photo'))
       );
     }
 
-    case 'confirm': {
-      if (text.toLowerCase() !== '/publish') return send(chatId, 'Send /publish or /cancel.');
-      await publishDraft(draft, who);
-      await setDraft(chatId, undefined);
-      return send(chatId, '🚀 Published. The website rebuilds in a minute or two.');
+    case 'titleAr': {
+      if (!text) return send(chatId, 'Send the Arabic headline, or skip.', keys(SKIP_CANCEL('skip:arabic')));
+      await setDraft(chatId, stamp({ ...draft, titleAr: text, step: 'excerptAr' }));
+      return send(
+        chatId,
+        'Now the <b>Arabic summary</b>, or skip it and only the headline is translated.',
+        keys(SKIP_CANCEL('skip:excerptAr'))
+      );
     }
+
+    case 'excerptAr': {
+      const next = stamp({ ...draft, excerptAr: text, step: 'confirm' });
+      await setDraft(chatId, next);
+      return send(chatId, newsPreview(next), PREVIEW_KEYS);
+    }
+
+    case 'confirm':
+      return send(
+        chatId,
+        'Tap <b>Publish</b> to put this live, or <b>Cancel</b> to throw it away.',
+        PREVIEW_KEYS
+      );
 
     default:
       await setDraft(chatId, undefined);
-      return send(chatId, 'Lost track of that draft — start again with /news.');
+      return send(chatId, 'I lost track of that draft. Start again from the menu.', MENU_KEYS);
   }
 }
 
+const askArabic = (chatId, prefix) =>
+  send(
+    chatId,
+    [
+      prefix,
+      '',
+      `🇴🇲 <b>Arabic</b>  ·  step ${NEWS_STEPS} of ${NEWS_STEPS}`,
+      '',
+      'Send the <b>Arabic headline</b>, or skip — Arabic visitors will simply',
+      'see the English, and nothing breaks.',
+    ].join('\n'),
+    keys([[['⏭ Skip Arabic', 'skip:arabic']], CANCEL])
+  );
+
+/* ── Schedule flow ────────────────────────────────────────────── */
+
+const squadKeys = () =>
+  keys([
+    SQUADS.slice(0, 3).map((s) => [s.toUpperCase(), `sq:${s}`]),
+    SQUADS.slice(3).map((s) => [s.toUpperCase(), `sq:${s}`]),
+    ...[CANCEL],
+  ]);
+
+async function startSchedule(chatId) {
+  await setDraft(chatId, stamp({ kind: 'schedule', step: 'squad' }));
+  return send(
+    chatId,
+    ['🗓 <b>Training times</b>', '', 'Which squad?'].join('\n'),
+    squadKeys()
+  );
+}
+
+function schedulePreview(draft) {
+  return [
+    `🗓 <b>${String(draft.squad).toUpperCase()}</b>`,
+    '',
+    draft.winter ? `Winter → <b>${esc(draft.winter)}</b>` : 'Winter → unchanged',
+    draft.summer ? `Summer → <b>${esc(draft.summer)}</b>` : 'Summer → unchanged',
+    draft.duration ? `Session length → <b>${esc(draft.duration)}</b>` : 'Session length → unchanged',
+    '',
+    'Arabic times are filled in automatically.',
+    '',
+    'Nothing is live yet.',
+  ].join('\n');
+}
+
+const SCHED_KEYS = keys([
+  [['🚀 Apply', 'pub:sched']],
+  [['✖️ Cancel', 'go:cancel']],
+]);
+
 async function handleScheduleStep(chatId, message, draft) {
   const text = (message.text ?? '').trim();
-  const skipped = text.toLowerCase() === '/skip';
-  const { data, sha } = await readJson(SCHEDULE_PATH);
-  const squads = data?.squads ?? [];
-  const current = squads.find((s) => s.id === draft.squad);
+  if (text.startsWith('/')) {
+    return send(chatId, 'Send the time as ordinary text, for example <code>4:00 PM – 5:30 PM</code>.', keys([CANCEL]));
+  }
+
+  const { data } = await readJson(SCHEDULE_PATH);
+  const current = (data?.squads ?? []).find((s) => s.id === draft.squad);
 
   switch (draft.step) {
-    case 'squad': {
-      const id = text.toLowerCase();
-      if (!SQUADS.includes(id)) return send(chatId, `Reply with one of: ${SQUADS.join(', ')}`);
-      const picked = squads.find((s) => s.id === id);
-      await setDraft(chatId, { ...draft, squad: id, step: 'winter' });
-      return send(
-        chatId,
-        `<b>${id.toUpperCase()}</b>\nCurrent winter slot: <code>${esc(picked?.winterTime)}</code>\n\nSend the new winter time, or /skip.`
-      );
-    }
+    case 'squad':
+      return send(chatId, 'Pick a squad using the buttons.', squadKeys());
 
     case 'winter':
-      await setDraft(chatId, { ...draft, winter: skipped ? undefined : text, step: 'summer' });
-      return send(chatId, `Current summer slot: <code>${esc(current?.summerTime)}</code>\n\nSend the new summer time, or /skip.`);
+      if (!text) return send(chatId, 'Send the new winter time, or skip.', keys(SKIP_CANCEL('skip:winter')));
+      await setDraft(chatId, stamp({ ...draft, winter: text, step: 'summer' }));
+      return askSummer(chatId, current);
 
     case 'summer':
-      await setDraft(chatId, { ...draft, summer: skipped ? undefined : text, step: 'duration' });
-      return send(chatId, `Current session length: <code>${esc(current?.duration)}</code>\n\nSend the new length, or /skip.`);
+      if (!text) return send(chatId, 'Send the new summer time, or skip.', keys(SKIP_CANCEL('skip:summer')));
+      await setDraft(chatId, stamp({ ...draft, summer: text, step: 'duration' }));
+      return askDuration(chatId, current);
 
     case 'duration': {
-      const finished = { ...draft, duration: skipped ? undefined : text, step: 'confirm' };
-      await setDraft(chatId, finished);
-      return send(
-        chatId,
-        [
-          `<b>${String(finished.squad).toUpperCase()}</b>`,
-          finished.winter ? `Winter → ${esc(finished.winter)}` : 'Winter → unchanged',
-          finished.summer ? `Summer → ${esc(finished.summer)}` : 'Summer → unchanged',
-          finished.duration ? `Length → ${esc(finished.duration)}` : 'Length → unchanged',
-          '',
-          'Send /publish to apply, or /cancel.',
-        ].join('\n')
-      );
+      if (!text) return send(chatId, 'Send the session length, or skip.', keys(SKIP_CANCEL('skip:duration')));
+      const next = stamp({ ...draft, duration: text, step: 'confirm' });
+      await setDraft(chatId, next);
+      return send(chatId, schedulePreview(next), SCHED_KEYS);
     }
 
-    case 'confirm': {
-      if (text.toLowerCase() !== '/publish') return send(chatId, 'Send /publish or /cancel.');
-      const next = squads.map((s) => {
-        if (s.id !== draft.squad) return s;
-        const updated = { ...s };
-        if (draft.winter) {
-          updated.winterTime = draft.winter;
-          updated.winterTimeAr = arTime(draft.winter);
-        }
-        if (draft.summer) {
-          updated.summerTime = draft.summer;
-          updated.summerTimeAr = arTime(draft.summer);
-        }
-        if (draft.duration) {
-          updated.duration = draft.duration;
-          updated.durationAr = arDuration(draft.duration);
-        }
-        return updated;
-      });
-      await writeJson({
-        path: SCHEDULE_PATH,
-        data: { ...data, squads: next },
-        sha,
-        message: `Update ${String(draft.squad).toUpperCase()} training times via Telegram`,
-      });
-      await setDraft(chatId, undefined);
-      return send(
-        chatId,
-        '🚀 Updated. The website rebuilds in a minute or two.\n\nArabic times were mirrored automatically — adjust the wording in the dashboard if you want it different.'
-      );
-    }
+    case 'confirm':
+      return send(chatId, 'Tap <b>Apply</b> to save, or <b>Cancel</b>.', SCHED_KEYS);
 
     default:
       await setDraft(chatId, undefined);
-      return send(chatId, 'Lost track of that — start again with /schedule.');
+      return send(chatId, 'I lost track of that. Start again from the menu.', MENU_KEYS);
   }
+}
+
+const askWinter = (chatId, current) =>
+  send(
+    chatId,
+    [
+      `<b>${esc(current?.id?.toUpperCase() ?? '')}</b>  ·  winter slot`,
+      '',
+      `Currently: <code>${esc(current?.winterTime) || 'not set'}</code>`,
+      '',
+      'Send the new winter time, or skip to leave it.',
+    ].join('\n'),
+    keys(SKIP_CANCEL('skip:winter'))
+  );
+
+const askSummer = (chatId, current) =>
+  send(
+    chatId,
+    [
+      '<b>Summer slot</b>',
+      '',
+      `Currently: <code>${esc(current?.summerTime) || 'not set'}</code>`,
+      '',
+      'Send the new summer time, or skip.',
+    ].join('\n'),
+    keys(SKIP_CANCEL('skip:summer'))
+  );
+
+const askDuration = (chatId, current) =>
+  send(
+    chatId,
+    [
+      '<b>Session length</b>',
+      '',
+      `Currently: <code>${esc(current?.duration) || 'not set'}</code>`,
+      '',
+      'Send the new length, or skip.',
+    ].join('\n'),
+    keys(SKIP_CANCEL('skip:duration'))
+  );
+
+async function applySchedule(draft) {
+  const { data, sha } = await readJson(SCHEDULE_PATH);
+  const squads = data?.squads ?? [];
+
+  const next = squads.map((s) => {
+    if (s.id !== draft.squad) return s;
+    const updated = { ...s };
+    if (draft.winter) {
+      updated.winterTime = draft.winter;
+      updated.winterTimeAr = arTime(draft.winter);
+    }
+    if (draft.summer) {
+      updated.summerTime = draft.summer;
+      updated.summerTimeAr = arTime(draft.summer);
+    }
+    if (draft.duration) {
+      updated.duration = draft.duration;
+      updated.durationAr = arDuration(draft.duration);
+    }
+    return updated;
+  });
+
+  await writeJson({
+    path: SCHEDULE_PATH,
+    data: { ...data, squads: next },
+    sha,
+    message: `Update ${String(draft.squad).toUpperCase()} training times via Telegram`,
+  });
+}
+
+/* ── Recent posts, with a delete button each ──────────────────── */
+
+async function showList(chatId) {
+  const { data } = await readJson(NEWS_PATH);
+  const items = (data?.items ?? []).slice(0, 8);
+  if (!items.length) return send(chatId, 'No posts yet.', MENU_KEYS);
+
+  const rows = items.map((item, i) => [
+    [`🗑 ${(item.title || 'Untitled').slice(0, 40)}`, `del:${i}`],
+  ]);
+  rows.push([['← Menu', 'go:menu']]);
+
+  const lines = items.map((i, n) => `${n + 1}. <b>${esc(i.title)}</b>\n    ${esc(i.date)}`);
+  return send(
+    chatId,
+    ['<b>Recent posts</b>', '', lines.join('\n'), '', 'Tap one to delete it.'].join('\n'),
+    keys(rows)
+  );
+}
+
+async function deleteByIndex(chatId, index) {
+  const { sha, data } = await readJson(NEWS_PATH);
+  const items = data?.items ?? [];
+  const target = items[index];
+  if (!target) return send(chatId, 'That post is no longer there.', MENU_KEYS);
+
+  await writeJson({
+    path: NEWS_PATH,
+    data: { ...data, items: items.filter((_, i) => i !== index) },
+    sha,
+    message: `Delete news post "${target.id}" via Telegram`,
+  });
+  return send(
+    chatId,
+    `🗑 Deleted <b>${esc(target.title)}</b>.\n\nThe website updates in a minute or two.`,
+    MENU_KEYS
+  );
+}
+
+/* ── Unlocking ────────────────────────────────────────────────── */
+
+const GREETING = [
+  '👋 <b>Genoa Academy</b>',
+  '',
+  'This bot publishes news and training times to the academy website.',
+  '',
+  'Send the <b>admin passcode</b> to begin. Your message is deleted as soon',
+  'as it arrives, so the passcode is not left sitting in the chat.',
+].join('\n');
+
+async function handleUnlock(chatId, text, messageId, from) {
+  const missing = missingAuthConfig();
+  if (missing.length > 0) {
+    return send(
+      chatId,
+      `⚠️ This bot is not finished being set up: ${missing.join(' and ')} ` +
+        `${missing.length > 1 ? 'are' : 'is'} not set on the server. ` +
+        'Your passcode is not the problem.'
+    );
+  }
+
+  /*
+   * A command is not a passcode guess. The old bot counted anything you typed
+   * before unlocking as a wrong attempt, so tapping the menu button a few
+   * times locked you out of your own site for an hour.
+   */
+  if (text.startsWith('/')) return send(chatId, GREETING);
+
+  const state = await checkLockout(chatId);
+  if (state.lockedOut) {
+    return send(chatId, `🚫 Too many wrong passcodes. Try again in ${state.minutes} minute(s).`);
+  }
+
+  if (passcodeMatches(text)) {
+    await deleteMessage(chatId, messageId);
+    await clearFailures(chatId);
+    const name = [from?.first_name, from?.last_name].filter(Boolean).join(' ') || from?.username || '';
+    await unlock(chatId, name);
+    await send(chatId, '✅ <b>Signed in</b> for 12 hours. Your passcode message was deleted.');
+    return menu(chatId);
+  }
+
+  await deleteMessage(chatId, messageId);
+  const after = await recordFailure(chatId);
+  return send(
+    chatId,
+    after.lockedOut
+      ? '🚫 Too many wrong passcodes. This chat is locked for 1 hour.'
+      : `❌ That passcode is not right. ${after.remaining} attempt(s) left.`
+  );
+}
+
+/* ── Typed commands (still supported, never required) ─────────── */
+
+async function handleCommand(chatId, text, draft) {
+  const cmd = text.trim().split(/\s+/)[0].toLowerCase().replace(/@.*$/, '');
+
+  // Always allowed, even mid-draft.
+  if (cmd === '/cancel') {
+    await setDraft(chatId, undefined);
+    return send(chatId, 'Draft thrown away. Nothing was published.', MENU_KEYS);
+  }
+  if (cmd === '/help') return send(chatId, HELP_TEXT, MENU_KEYS);
+
+  // Typed shortcuts for the two buttons people reach for most. These run the
+  // SAME code as the buttons, so the two ways of driving the bot cannot drift.
+  if (cmd === '/skip') {
+    if (!draft) return send(chatId, 'Nothing to skip.', MENU_KEYS);
+    return typedSkip(chatId, draft);
+  }
+  if (cmd === '/publish') {
+    if (!draft) return send(chatId, 'Nothing to publish.', MENU_KEYS);
+    if (draft.step !== 'confirm') {
+      return send(chatId, 'Not finished yet — answer the question above first.', keys([CANCEL]));
+    }
+    return doPublish(chatId, draft, String(chatId), draft.kind === 'news' ? 'news' : 'sched');
+  }
+  if (cmd === '/start' || cmd === '/menu') {
+    if (draft) return warnBusy(chatId, draft);
+    return menu(chatId);
+  }
+
+  /*
+   * Anything else would previously have DELETED the draft on its way past.
+   * Refuse instead: a half-written post must not vanish because someone
+   * mistyped a command.
+   */
+  if (draft) return warnBusy(chatId, draft);
+
+  switch (cmd) {
+    case '/news':
+      return startNews(chatId);
+    case '/schedule':
+      return startSchedule(chatId);
+    case '/list':
+      return showList(chatId);
+    case '/lock':
+      await lock(chatId);
+      return send(chatId, '🔒 Signed out. Send the passcode again to come back.');
+    case '/who': {
+      const list = await listUnlocked();
+      const lines = list.map((u) => `• ${esc(u.name) || 'unnamed'} — ${u.expiresInMinutes} min left`);
+      return send(chatId, lines.length ? `<b>Signed in now</b>\n${lines.join('\n')}` : 'Nobody is signed in.', MENU_KEYS);
+    }
+    default:
+      return send(chatId, 'I did not recognise that. Here is the menu.', MENU_KEYS);
+  }
+}
+
+const warnBusy = (chatId, draft) =>
+  send(
+    chatId,
+    [
+      `You are in the middle of ${draft.kind === 'news' ? 'writing a post' : 'changing training times'}.`,
+      '',
+      'Finish it, or cancel it — your work is not thrown away by mistake.',
+    ].join('\n'),
+    keys([[['✖️ Cancel that draft', 'go:cancel']]])
+  );
+
+/* ── Skipping ─────────────────────────────────────────────────────
+   What "skip" means depends on the question on screen, so the step decides.
+   Typing /skip used to fall through to the command router, which answered
+   "you are in the middle of a post" — correct about the draft, useless as an
+   answer to what was actually asked. Steps that cannot be skipped now say
+   why, rather than leaving the word sitting in the draft as an answer.   */
+
+const SKIPPABLE = {
+  photo: 'photo',
+  titleAr: 'arabic',
+  excerptAr: 'excerptAr',
+  winter: 'winter',
+  summer: 'summer',
+  duration: 'duration',
+};
+
+const NOT_SKIPPABLE = {
+  title: 'A post needs a headline — there is nothing to fall back on.',
+  excerpt: 'A post needs a summary; it is what appears under the headline.',
+  squad: 'Pick a squad first, using the buttons.',
+  confirm: 'Nothing left to skip — publish it or cancel it.',
+};
+
+async function applySkip(chatId, draft, value) {
+  if (value === 'photo') {
+    await setDraft(chatId, stamp({ ...draft, step: 'titleAr' }));
+    return askArabic(chatId, 'No photo — that is fine.');
+  }
+  if (value === 'arabic') {
+    // Skip BOTH Arabic fields and go straight to the preview.
+    const next = stamp({ ...draft, titleAr: '', excerptAr: '', step: 'confirm' });
+    await setDraft(chatId, next);
+    return send(chatId, newsPreview(next), PREVIEW_KEYS);
+  }
+  if (value === 'excerptAr') {
+    const next = stamp({ ...draft, excerptAr: '', step: 'confirm' });
+    await setDraft(chatId, next);
+    return send(chatId, newsPreview(next), PREVIEW_KEYS);
+  }
+
+  const { data: sched } = await readJson(SCHEDULE_PATH);
+  const current = (sched?.squads ?? []).find((sq) => sq.id === draft.squad);
+
+  if (value === 'winter') {
+    await setDraft(chatId, stamp({ ...draft, step: 'summer' }));
+    return askSummer(chatId, current);
+  }
+  if (value === 'summer') {
+    await setDraft(chatId, stamp({ ...draft, step: 'duration' }));
+    return askDuration(chatId, current);
+  }
+  if (value === 'duration') {
+    const next = stamp({ ...draft, step: 'confirm' });
+    await setDraft(chatId, next);
+    return send(chatId, schedulePreview(next), SCHED_KEYS);
+  }
+  return menu(chatId);
+}
+
+/** Commit a finished draft. Shared by the Publish button and typed /publish. */
+async function doPublish(chatId, draft, who, kind) {
+  if (kind === 'news') {
+    await publishDraft(draft, who);
+    await setDraft(chatId, undefined);
+    return send(chatId, '🚀 <b>Published.</b>\n\nThe website updates in a minute or two.', MENU_KEYS);
+  }
+  if (kind === 'sched') {
+    await applySchedule(draft);
+    await setDraft(chatId, undefined);
+    return send(
+      chatId,
+      '🚀 <b>Saved.</b>\n\nThe website updates in a minute or two. Arabic times were filled in automatically — adjust the wording in Studio if you want it different.',
+      MENU_KEYS
+    );
+  }
+  return menu(chatId);
+}
+
+/** Typed /skip: work out what it means where the person is standing. */
+async function typedSkip(chatId, draft) {
+  const target = SKIPPABLE[draft.step];
+  if (target) return applySkip(chatId, draft, target);
+  return send(chatId, NOT_SKIPPABLE[draft.step] ?? 'That cannot be skipped.', keys([CANCEL]));
+}
+
+/* ── Button taps ──────────────────────────────────────────────── */
+
+async function handleTap(chatId, data, tapId, messageId, who) {
+  const [kind, value] = data.split(':');
+  const draft = await liveDraft(chatId);
+
+  if (kind === 'go') {
+    switch (value) {
+      case 'menu':
+        await answerTap(tapId);
+        return menu(chatId);
+      case 'help':
+        await answerTap(tapId);
+        return send(chatId, HELP_TEXT, MENU_KEYS);
+      case 'cancel':
+        await setDraft(chatId, undefined);
+        await answerTap(tapId, 'Cancelled');
+        await editMessage(chatId, messageId, 'Cancelled. Nothing was published.');
+        return menu(chatId);
+      case 'lock':
+        await lock(chatId);
+        await answerTap(tapId);
+        return send(chatId, '🔒 Signed out. Send the passcode again to come back.');
+      case 'news':
+        await answerTap(tapId);
+        if (draft) return warnBusy(chatId, draft);
+        return startNews(chatId);
+      case 'sched':
+        await answerTap(tapId);
+        if (draft) return warnBusy(chatId, draft);
+        return startSchedule(chatId);
+      case 'list':
+        await answerTap(tapId);
+        if (draft) return warnBusy(chatId, draft);
+        return showList(chatId);
+      default:
+        return answerTap(tapId);
+    }
+  }
+
+  if (kind === 'sq') {
+    await answerTap(tapId);
+    if (!SQUADS.includes(value)) return send(chatId, 'Unknown squad.', squadKeys());
+    const { data: sched } = await readJson(SCHEDULE_PATH);
+    const current = (sched?.squads ?? []).find((s) => s.id === value);
+    await setDraft(chatId, stamp({ kind: 'schedule', squad: value, step: 'winter' }));
+    return askWinter(chatId, { ...current, id: value });
+  }
+
+  if (kind === 'skip') {
+    if (!draft) {
+      await answerTap(tapId, 'That draft has expired');
+      return menu(chatId);
+    }
+    await answerTap(tapId, 'Skipped');
+    return applySkip(chatId, draft, value);
+  }
+
+  if (kind === 'pub') {
+    if (!draft) {
+      await answerTap(tapId, 'That draft has expired');
+      return menu(chatId);
+    }
+    await answerTap(tapId, 'Publishing…');
+    await editMessage(chatId, messageId, 'Publishing…');
+    return doPublish(chatId, draft, who, value);
+  }
+
+  if (kind === 'del') {
+    await answerTap(tapId);
+    if (draft) return warnBusy(chatId, draft);
+    return deleteByIndex(chatId, Number(value));
+  }
+
+  return answerTap(tapId);
 }
 
 /* ── Webhook entry point ──────────────────────────────────────── */
@@ -394,54 +848,59 @@ export default async function handler(request) {
     return new Response('ok', { status: 200 });
   }
 
-  const message = update.message ?? update.edited_message;
-  const chatId = message?.chat?.id;
-  // Always answer 200 — any other status makes Telegram retry forever.
+  const tap = update.callback_query;
+  // An edited message is NOT a new answer: replying to it would re-run a step
+  // the person already completed.
+  const message = update.message;
+  const chatId = tap?.message?.chat?.id ?? message?.chat?.id;
+
+  // Always answer 200 — any other status makes Telegram retry for ever.
   if (!chatId) return new Response('ok', { status: 200 });
 
   try {
-    const text = (message.text ?? '').trim();
+    const from = tap?.from ?? message?.from;
+    const who = from?.username ? `@${from.username}` : String(chatId);
 
     if (!(await isUnlocked(chatId))) {
-      if (text === '/start') {
-        await send(chatId, '👋 <b>Genoa Academy bot</b>\n\nSend the admin passcode to unlock.');
+      if (tap) {
+        await answerTap(tap.id, 'Send the admin passcode first');
+        await send(chatId, GREETING);
       } else {
-        await handleUnlock(chatId, text, message.message_id, message.from);
+        await handleUnlock(chatId, (message.text ?? '').trim(), message.message_id, message.from);
       }
       return new Response('ok', { status: 200 });
     }
 
-    const who = message.from?.username ? `@${message.from.username}` : String(chatId);
-    const draft = await getDraft(chatId);
-    const isCommand = text.startsWith('/') && !['/skip', '/publish'].includes(text.toLowerCase());
+    if (tap) {
+      await handleTap(chatId, tap.data ?? '', tap.id, tap.message?.message_id, who);
+      return new Response('ok', { status: 200 });
+    }
 
-    if (isCommand) {
-      if (draft && text.toLowerCase() !== '/cancel') await setDraft(chatId, undefined);
-      await handleCommand(chatId, text, message.from);
+    const text = (message.text ?? '').trim();
+    const draft = await liveDraft(chatId);
+
+    if (text.startsWith('/')) {
+      await handleCommand(chatId, text, draft);
     } else if (draft?.kind === 'news') {
-      await handleNewsStep(chatId, message, draft, who);
+      await handleNewsStep(chatId, message, draft);
     } else if (draft?.kind === 'schedule') {
       await handleScheduleStep(chatId, message, draft);
     } else {
-      await send(chatId, `Nothing in progress.\n\n${HELP}`);
+      await menu(chatId);
     }
   } catch (err) {
     console.error('telegram handler failed', err);
 
     /*
      * "Try again" was the wrong answer to the commonest failure here. Every
-     * publish goes through the same GitHub write as the dashboard, so when the
-     * token cannot write, retrying fails identically and for ever. Send the
-     * real reason — the bot is passcode-gated, so only the owner sees it.
+     * publish goes through the same GitHub write as Studio, so when the token
+     * cannot write, retrying fails identically and for ever. Send the real
+     * reason — the bot is passcode-gated, so only the owner sees it.
      */
     const why = await explainWriteFailure(err).catch(() => String(err?.message ?? err));
-    const safe = String(why)
-      .replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
-      .slice(0, 3000);
+    const safe = esc(String(why)).slice(0, 3000);
 
-    await send(chatId, `⚠️ Nothing was published.
-
-${safe}`).catch(() => undefined);
+    await send(chatId, `⚠️ <b>Nothing was published.</b>\n\n${safe}`).catch(() => undefined);
   }
 
   return new Response('ok', { status: 200 });
