@@ -102,6 +102,20 @@ export async function clearFailures(chatId) {
   await writeJson('auth-attempts', all);
 }
 
+/* ── Small timestamps ─────────────────────────────────────────────
+   For "when did we last check X", so a periodic job can run from a
+   webhook without repeating itself on every single message.       */
+
+export async function lastChecked(name) {
+  const entry = await readJson(`meta/${name}`, null);
+  return entry?.t ?? null;
+}
+
+export async function markChecked(name) {
+  await writeJson(`meta/${name}`, { t: Date.now() });
+}
+
+
 /* ── Presence and daily counts ────────────────────────────────────
 
    One blob per live tab rather than one shared counter. A shared

@@ -47,6 +47,7 @@ import {
   isUnlocked, unlock, lock, listUnlocked,
   checkLockout, recordFailure, clearFailures,
   getDraft, setDraft,
+  lastChecked, markChecked,
 } from './lib/store.mjs';
 import { randomBytes } from 'node:crypto';
 
@@ -832,6 +833,68 @@ async function handleTap(chatId, data, tapId, messageId, who) {
   return answerTap(tapId);
 }
 
+/* ── Keeping the buttons alive ─────────────────────────────────────
+
+   Telegram only delivers the update types the webhook asked for when it
+   was registered. This bot's webhook was originally registered with
+   allowed_updates: ['message'], which means button taps — which arrive as
+   callback_query — were never delivered at all. The bot answered typed
+   commands perfectly and ignored every button, with no error anywhere,
+   because it genuinely never heard the tap.
+
+   Fixing the registration code is not enough: the registration itself
+   lives at Telegram and only changes when setWebhook is called again. So
+   rather than leaving that as a step someone has to know about, the bot
+   repairs itself. Messages still arrive, so the next message is enough.
+
+   Checked at most once an hour, so this costs nothing per message.     */
+
+const WEBHOOK_CHECK_EVERY_MS = 60 * 60 * 1000;
+
+async function ensureButtonsWork(request, chatId) {
+  try {
+    const last = await lastChecked('webhook');
+    if (last && Date.now() - last < WEBHOOK_CHECK_EVERY_MS) return;
+    await markChecked('webhook');
+
+    const info = await tg('getWebhookInfo', {});
+    const allowed = info?.result?.allowed_updates;
+
+    /*
+     * An ABSENT allowed_updates is the Telegram default, which already
+     * includes callback_query — that case is healthy and must not be
+     * "repaired". Only an explicit list missing callback_query is broken.
+     */
+    if (!Array.isArray(allowed) || allowed.includes('callback_query')) return;
+
+    const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+    const host = request.headers.get('host');
+    if (!host) return;
+
+    const result = await tg('setWebhook', {
+      url: `${proto}://${host}/api/telegram`,
+      secret_token: process.env.TELEGRAM_WEBHOOK_SECRET,
+      allowed_updates: ['message', 'callback_query'],
+    });
+    if (!result?.ok) return;
+
+    await send(
+      chatId,
+      [
+        '🔧 <b>Buttons are now switched on.</b>',
+        '',
+        'This bot was registered with Telegram before it had buttons, so your',
+        'taps were never being delivered — that is why nothing happened when',
+        'you pressed them. That is fixed now.',
+        '',
+        'Try the menu again.',
+      ].join('\n')
+    );
+  } catch {
+    /* Never let self-repair break the message the person actually sent. */
+  }
+}
+
 /* ── Webhook entry point ──────────────────────────────────────── */
 
 export default async function handler(request) {
@@ -875,6 +938,9 @@ export default async function handler(request) {
       await handleTap(chatId, tap.data ?? '', tap.id, tap.message?.message_id, who);
       return new Response('ok', { status: 200 });
     }
+
+    // Only worth checking on a message: if taps were broken, none can arrive.
+    await ensureButtonsWork(request, chatId);
 
     const text = (message.text ?? '').trim();
     const draft = await liveDraft(chatId);

@@ -264,11 +264,17 @@ is never machine-translated: the bot asks, and blank Arabic falls back to
 English on the website. Photos sent through Telegram are JPEG only; upload
 through Studio if you want a WebP twin as well.
 
-> **After deploying a bot change, press Connect bot in Studio once.** Button
-> taps arrive as `callback_query` updates, and Telegram only delivers the update
-> types the webhook asked for at registration. A webhook registered before the
-> buttons existed answers typed messages but silently ignores every tap. The
-> Status & Bot tab detects exactly this and tells you to reconnect.
+> **Button taps and the webhook.** Telegram only delivers the update types a
+> webhook asked for when it was registered, and taps arrive as
+> `callback_query`. A webhook registered before the buttons existed answers
+> typed commands perfectly and ignores every tap — no error anywhere, because
+> the tap is never delivered.
+>
+> The bot repairs this itself: it checks its own registration once an hour and
+> re-registers if taps are not being delivered, then says so in the chat. You
+> can also force it immediately with **Connect bot** in Studio, and the Status
+> & Bot tab flags the broken state rather than reporting a healthy-looking
+> "Connected".
 
 ### How access works
 
