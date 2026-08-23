@@ -718,25 +718,6 @@ body {
 
 .spark-day { font-size: 10.5px; color: var(--text-faint); }
 
-/* Key/value health rows */
-
-.state-list { display: grid; gap: 2px; }
-
-.state-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line-soft);
-  font-size: 13.5px;
-}
-
-.state-row:last-child { border-bottom: 0; }
-.state-key { color: var(--text-dim); }
-.state-val { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
-
-.muted-line { color: var(--text-faint); font-size: 13.5px; }
-
 .fineprint { margin-top: 26px; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
 
 .fold-mark {

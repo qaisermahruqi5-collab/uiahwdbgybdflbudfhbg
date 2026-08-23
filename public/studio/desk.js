@@ -29,7 +29,6 @@ const ROUTES = {
   upload: ['/studio-io/upload', '/api/admin/upload'],
   bot: ['/studio-io/bot', '/api/admin/telegram'],
   session: ['/studio-io/session', '/api/admin/login'],
-  health: ['/studio-io/health', '/api/admin/health'],
   pulse: ['/studio-io/pulse', '/api/admin/pulse'],
   status: ['/studio-io/status', '/api/admin/status'],
 };
@@ -714,11 +713,6 @@ $('#bot-link').addEventListener('click', async () => {
 const STATS_EVERY_MS = 30_000;
 let statsTimer = null;
 
-const setDot = (id, state) => {
-  const dot = $(id);
-  if (dot) dot.className = `dot ${state}`;
-};
-
 async function refreshStats() {
   let res;
   try {
@@ -771,92 +765,11 @@ function drawSpark(byDay) {
   }
 }
 
-async function refreshHealth() {
-  $('#pub-say').textContent = 'Checking…';
-
-  let res;
-  try {
-    res = await send('status', {}, 20000);
-  } catch (err) {
-    setDot('#pub-dot', 'off');
-    $('#pub-say').textContent = err.message;
-    return;
-  }
-
-  if (!res.ok) {
-    setDot('#pub-dot', 'off');
-    $('#pub-say').textContent = await reasonFrom(res, 'Could not read the site status');
-    return;
-  }
-
-  const s = await res.json();
-
-  /* Can we publish at all? */
-  setDot('#pub-dot', s.canPublish ? 'on' : 'off');
-  $('#pub-say').textContent = s.canPublish
-    ? `Publishing works — ${s.repo}`
-    : s.access?.reason ?? `Publishing is refused for ${s.repo}.`;
-
-  /* When does the token lapse? This is the one that ambushes people. */
-  const token = s.token;
-  if (!token) {
-    setDot('#tok-dot', '');
-    $('#tok-say').textContent = 'Token expiry unknown (classic tokens do not report one).';
-  } else if (token.expired) {
-    setDot('#tok-dot', 'off');
-    $('#tok-say').textContent = `GitHub token EXPIRED on ${token.raw}. Publishing will fail until it is replaced.`;
-  } else if (token.soon) {
-    setDot('#tok-dot', 'off');
-    $('#tok-say').textContent =
-      `GitHub token expires in ${token.daysLeft} day(s), on ${token.raw}. ` +
-      'Renew it before then, or publishing stops.';
-  } else {
-    setDot('#tok-dot', 'on');
-    $('#tok-say').textContent = `GitHub token valid for ${token.daysLeft} more day(s).`;
-  }
-
-  /* When did anything last reach the website? */
-  if (s.lastPublish?.when) {
-    const when = new Date(s.lastPublish.when);
-    const hours = Math.round((Date.now() - when.getTime()) / 3600000);
-    const ago =
-      hours < 1 ? 'less than an hour ago' : hours < 48 ? `${hours} hours ago` : `${Math.round(hours / 24)} days ago`;
-    setDot('#last-dot', 'on');
-    $('#last-say').textContent = `Last published ${ago} — ${s.lastPublish.message}`;
-  } else {
-    setDot('#last-dot', '');
-    $('#last-say').textContent = 'No publish history found yet.';
-  }
-
-  /* What is actually on the site. */
-  const c = s.content ?? {};
-  const lines = $('#content-lines');
-  lines.replaceChildren();
-  for (const [label, value] of [
-    ['News posts', c.posts],
-    ['With a photo', c.withPhotos],
-    ['Missing an Arabic headline', c.missingArabic],
-    ['Squads', c.squads],
-    ['Season terms', c.terms],
-    ['Newest post', c.newestPost ?? '—'],
-  ]) {
-    if (value === null || value === undefined) continue;
-    lines.append(
-      el('div', { className: 'state-row' }, [
-        el('span', { className: 'state-key', textContent: label }),
-        el('span', { className: 'state-val', textContent: String(value) }),
-      ])
-    );
-  }
-}
-
 $('#stats-again').addEventListener('click', refreshStats);
-$('#health-again').addEventListener('click', refreshHealth);
 
 /** Called when the Status tab is opened. */
 function startStatus() {
   refreshStats();
-  refreshHealth();
   if (statsTimer) clearInterval(statsTimer);
   statsTimer = setInterval(refreshStats, STATS_EVERY_MS);
 }
@@ -1089,25 +1002,44 @@ async function boot() {
 async function checkCanPublish() {
   let res;
   try {
-    res = await send('health', {}, 15000);
+    res = await send('status', {}, 15000);
   } catch {
     return; // Not worth reporting: the editor itself is working.
   }
   if (!res.ok) return;
 
-  const health = await res.json().catch(() => null);
-  const access = health?.access;
-  if (!access || access.canWrite !== false) return;
+  const status = await res.json().catch(() => null);
+  if (!status) return;
 
-  flash(
-    'Heads up before you start: this site can READ your content but cannot ' +
-      'PUBLISH it. The GitHub token has no write access to ' +
-      `${health.repo}, so Publish will be refused. ` +
-      (access.reason ?? '') +
-      ' Fix that on GitHub first — Settings > Developer settings > Personal ' +
-      'access tokens > Fine-grained tokens > Contents: Read and write.',
-    'bad'
-  );
+  // Publishing refused outright: say so before any work is typed.
+  if (status.canPublish === false) {
+    flash(
+      'Heads up before you start: this site can READ your content but cannot ' +
+        'PUBLISH it. The GitHub token has no write access to ' +
+        `${status.repo}, so Publish will be refused. ` +
+        (status.access?.reason ?? '') +
+        ' Fix that on GitHub first — Settings > Developer settings > Personal ' +
+        'access tokens > Fine-grained tokens > Contents: Read and write.',
+      'bad'
+    );
+    return;
+  }
+
+  // Publishing works today, but the token is about to lapse.
+  const token = status.token;
+  if (token?.expired) {
+    flash(
+      `The GitHub token expired on ${token.raw}. Publishing will fail until it is ` +
+        'replaced in Netlify under GITHUB_TOKEN.',
+      'bad'
+    );
+  } else if (token?.soon) {
+    flash(
+      `The GitHub token expires in ${token.daysLeft} day(s), on ${token.raw}. ` +
+        'Renew it before then, or publishing stops with no warning.',
+      'bad'
+    );
+  }
 }
 
 boot();

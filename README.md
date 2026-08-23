@@ -174,13 +174,11 @@ Go to **`/studio/`** on your site (`genoaacademyom.com/studio/`). It is
 |---|---|
 | Reading the website / In Studio | Browser tabs that reported in during the last 3 minutes |
 | Applications today, and a 7-day chart | The website confirming a successful send |
-| Publishing works / refused | Asks GitHub what the token can actually do |
-| GitHub token expiry, warned inside 14 days | The expiry header GitHub returns on every authenticated call |
-| Last published, and what changed | The most recent commit touching `content/` |
-| Post, squad and term counts; posts missing Arabic | The content files themselves |
 
-The token-expiry line exists because an expired token stops publishing with no
-warning at all. It turns red two weeks out.
+Publishing problems are not listed here. They appear as a red notice when you
+open Studio, and only when something is actually wrong: the token cannot write,
+or it is within fourteen days of expiring. An expired token otherwise stops
+publishing with no warning at all, which is why that one notice remains.
 
 ##### What the presence counter stores, and what it does not
 
