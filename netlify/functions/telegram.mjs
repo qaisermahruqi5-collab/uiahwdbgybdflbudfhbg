@@ -195,8 +195,8 @@ const HELP_TEXT = [
   'before anything goes live, and nothing is published until you tap',
   '<b>Publish</b>.',
   '',
-  '<b>Training times</b> lets you pick a squad and change its winter slot,',
-  'summer slot and session length. Arabic times are filled in for you.',
+  '<b>Training times</b> lets you pick a squad and change its time slot',
+  'and the duration of one training. Arabic times are filled in for you.',
   '',
   'Leave Arabic blank and Arabic visitors simply see the English — nothing',
   'breaks.',
@@ -388,9 +388,8 @@ function schedulePreview(draft) {
   return [
     `🗓 <b>${String(draft.squad).toUpperCase()}</b>`,
     '',
-    draft.winter ? `Winter → <b>${esc(draft.winter)}</b>` : 'Winter → unchanged',
-    draft.summer ? `Summer → <b>${esc(draft.summer)}</b>` : 'Summer → unchanged',
-    draft.duration ? `Session length → <b>${esc(draft.duration)}</b>` : 'Session length → unchanged',
+    draft.time ? `Time → <b>${esc(draft.time)}</b>` : 'Time → unchanged',
+    draft.duration ? `Duration → <b>${esc(draft.duration)}</b>` : 'Duration → unchanged',
     '',
     'Arabic times are filled in automatically.',
     '',
@@ -406,7 +405,7 @@ const SCHED_KEYS = keys([
 async function handleScheduleStep(chatId, message, draft) {
   const text = (message.text ?? '').trim();
   if (text.startsWith('/')) {
-    return send(chatId, 'Send the time as ordinary text, for example <code>4:00 PM – 5:30 PM</code>.', keys([CANCEL]));
+    return send(chatId, 'Send the time as ordinary text, for example <code>6:00 – 7:30 pm</code>.', keys([CANCEL]));
   }
 
   const { data } = await readJson(SCHEDULE_PATH);
@@ -416,18 +415,13 @@ async function handleScheduleStep(chatId, message, draft) {
     case 'squad':
       return send(chatId, 'Pick a squad using the buttons.', squadKeys());
 
-    case 'winter':
-      if (!text) return send(chatId, 'Send the new winter time, or skip.', keys(SKIP_CANCEL('skip:winter')));
-      await setDraft(chatId, stamp({ ...draft, winter: text, step: 'summer' }));
-      return askSummer(chatId, current);
-
-    case 'summer':
-      if (!text) return send(chatId, 'Send the new summer time, or skip.', keys(SKIP_CANCEL('skip:summer')));
-      await setDraft(chatId, stamp({ ...draft, summer: text, step: 'duration' }));
+    case 'time':
+      if (!text) return send(chatId, 'Send the new training time, or skip.', keys(SKIP_CANCEL('skip:time')));
+      await setDraft(chatId, stamp({ ...draft, time: text, step: 'duration' }));
       return askDuration(chatId, current);
 
     case 'duration': {
-      if (!text) return send(chatId, 'Send the session length, or skip.', keys(SKIP_CANCEL('skip:duration')));
+      if (!text) return send(chatId, 'Send the duration of one training, or skip.', keys(SKIP_CANCEL('skip:duration')));
       const next = stamp({ ...draft, duration: text, step: 'confirm' });
       await setDraft(chatId, next);
       return send(chatId, schedulePreview(next), SCHED_KEYS);
@@ -442,41 +436,30 @@ async function handleScheduleStep(chatId, message, draft) {
   }
 }
 
-const askWinter = (chatId, current) =>
+const askTime = (chatId, current) =>
   send(
     chatId,
     [
-      `<b>${esc(current?.id?.toUpperCase() ?? '')}</b>  ·  winter slot`,
+      `<b>${esc(current?.id?.toUpperCase() ?? '')}</b>  ·  training time`,
       '',
-      `Currently: <code>${esc(current?.winterTime) || 'not set'}</code>`,
+      `Currently: <code>${esc(current?.time) || 'not set'}</code>`,
       '',
-      'Send the new winter time, or skip to leave it.',
+      'Send the new time, for example <code>6:00 – 7:30 pm</code>, or skip to leave it.',
     ].join('\n'),
-    keys(SKIP_CANCEL('skip:winter'))
+    keys(SKIP_CANCEL('skip:time'))
   );
 
-const askSummer = (chatId, current) =>
-  send(
-    chatId,
-    [
-      '<b>Summer slot</b>',
-      '',
-      `Currently: <code>${esc(current?.summerTime) || 'not set'}</code>`,
-      '',
-      'Send the new summer time, or skip.',
-    ].join('\n'),
-    keys(SKIP_CANCEL('skip:summer'))
-  );
-
+/* "Duration" is how long ONE training lasts — never how often the squad
+   trains. The website makes the same distinction; see src/data/content.ts. */
 const askDuration = (chatId, current) =>
   send(
     chatId,
     [
-      '<b>Session length</b>',
+      '<b>Duration of one training</b>',
       '',
       `Currently: <code>${esc(current?.duration) || 'not set'}</code>`,
       '',
-      'Send the new length, or skip.',
+      'Send the new duration, for example <code>90 minutes</code>, or skip.',
     ].join('\n'),
     keys(SKIP_CANCEL('skip:duration'))
   );
@@ -488,13 +471,9 @@ async function applySchedule(draft) {
   const next = squads.map((s) => {
     if (s.id !== draft.squad) return s;
     const updated = { ...s };
-    if (draft.winter) {
-      updated.winterTime = draft.winter;
-      updated.winterTimeAr = arTime(draft.winter);
-    }
-    if (draft.summer) {
-      updated.summerTime = draft.summer;
-      updated.summerTimeAr = arTime(draft.summer);
+    if (draft.time) {
+      updated.time = draft.time;
+      updated.timeAr = arTime(draft.time);
     }
     if (draft.duration) {
       updated.duration = draft.duration;
@@ -682,8 +661,7 @@ const SKIPPABLE = {
   photo: 'photo',
   titleAr: 'arabic',
   excerptAr: 'excerptAr',
-  winter: 'winter',
-  summer: 'summer',
+  time: 'time',
   duration: 'duration',
 };
 
@@ -714,11 +692,7 @@ async function applySkip(chatId, draft, value) {
   const { data: sched } = await readJson(SCHEDULE_PATH);
   const current = (sched?.squads ?? []).find((sq) => sq.id === draft.squad);
 
-  if (value === 'winter') {
-    await setDraft(chatId, stamp({ ...draft, step: 'summer' }));
-    return askSummer(chatId, current);
-  }
-  if (value === 'summer') {
+  if (value === 'time') {
     await setDraft(chatId, stamp({ ...draft, step: 'duration' }));
     return askDuration(chatId, current);
   }
@@ -801,8 +775,8 @@ async function handleTap(chatId, data, tapId, messageId, who) {
     if (!SQUADS.includes(value)) return send(chatId, 'Unknown squad.', squadKeys());
     const { data: sched } = await readJson(SCHEDULE_PATH);
     const current = (sched?.squads ?? []).find((s) => s.id === value);
-    await setDraft(chatId, stamp({ kind: 'schedule', squad: value, step: 'winter' }));
-    return askWinter(chatId, { ...current, id: value });
+    await setDraft(chatId, stamp({ kind: 'schedule', squad: value, step: 'time' }));
+    return askTime(chatId, { ...current, id: value });
   }
 
   if (kind === 'skip') {

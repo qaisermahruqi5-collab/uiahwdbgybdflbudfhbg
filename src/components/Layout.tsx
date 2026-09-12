@@ -7,6 +7,7 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import WhatsAppButton from './WhatsAppButton';
 import ScrollProgress from './ScrollProgress';
+import ScrollToHash from './ScrollToHash';
 import { setLenis } from '@/lib/lenis';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -75,6 +76,11 @@ export default function Layout({ children }: { children: ReactNode }) {
         }}
       />
 
+      {/* Sole owner of scroll position after a navigation — including the
+          #pathway / #coaches / #location anchor links, which HashRouter
+          hands to us as location.hash because the URL's one '#' is spent
+          on the route itself. */}
+      <ScrollToHash />
       <ScrollProgress />
       <Navbar />
 

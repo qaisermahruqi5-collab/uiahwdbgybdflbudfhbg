@@ -29,18 +29,43 @@
     <script defer data-domain="your-domain.com" src="https://plausible.io/js/script.js"></script>
     -->
 
-    <!-- Structured data -->
+    <!-- Structured data
+         EDITING THIS BLOCK CHANGES ITS CSP HASH. Run `npm run csp-hash` and
+         paste the printed value into script-src in netlify.toml, or search
+         engines stop reading it (the page itself keeps working).
+
+         Address, geo and opening hours mirror src/data/content.ts LOCATION
+         and content/schedule.json. If the venue or the training times change,
+         update them here too — this is what Google shows in a map result. -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "SportsActivityLocation",
       "name": "Genoa Academy Oman",
       "description": "Official Genoa CFC Academy in Muscat, Oman. Elite youth football training for boys and girls aged 5 to 16, U6 to U16.",
+      "sport": "Football",
       "address": {
         "@type": "PostalAddress",
+        "name": "ABQ Azzan Bin Qais International School — MQ Campus",
+        "streetAddress": "Madinat Sultan Qaboos",
         "addressLocality": "Muscat",
+        "postalCode": "115",
         "addressCountry": "OM"
       },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 23.5843,
+        "longitude": 58.4469
+      },
+      "hasMap": "https://www.google.com/maps/search/?api=1&query=HCMW%2BQCM%20Muscat",
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Sunday", "Tuesday", "Wednesday"],
+          "opens": "17:00",
+          "closes": "21:00"
+        }
+      ],
       "telephone": "+968****1599",
       "sameAs": ["https://www.instagram.com/genoaacademyoman/"]
     }

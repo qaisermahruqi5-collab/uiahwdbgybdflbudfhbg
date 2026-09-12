@@ -8,6 +8,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, FormEvent, KeyboardEvent, ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   User,
   UserRound,
@@ -20,12 +21,33 @@ import {
   AlertTriangle,
   MessageCircle,
   ChevronDown,
+  Pencil,
 } from 'lucide-react';
 import { SITE, whatsappLink } from '@/config/site';
 import { reportFormSubmitted } from '@/lib/presence';
 import { countries } from '@/data/countries';
 import type { Country } from '@/data/countries';
-import type { Program } from '@/data/content';
+import type { Program, TermRow } from '@/data/content';
+import {
+  FREQUENCIES,
+  PAYMENT_OPTIONS,
+  SEASON_DISCOUNT_PCT,
+  formatOMR,
+  monthlyTotal,
+  optionTotal,
+  parseFrequency,
+  parsePaymentOption,
+  parseProgramId,
+  parseTermId,
+  pricingRow,
+  seasonSaving,
+  termPrice,
+  type Frequency,
+  type PaymentOption,
+  type PricingRow,
+  type TermId,
+} from '@/data/pricing';
+import { trainingDaysLabel } from '@/i18n/labels';
 import { useLanguage } from '@/i18n/useLanguage';
 import { useContent } from '@/i18n/useContent';
 import type { TParams } from '@/i18n/context';
@@ -43,6 +65,12 @@ interface FormData {
   phoneNumber: string; // digits only
   email: string;
   program: string; // Program id ('' = none selected) — required
+  /** Training days per week, as a string because it comes from a <select>. */
+  frequency: '' | '2' | '3';
+  /** Which term they are joining for. */
+  term: '' | TermId;
+  /** How they intend to pay. Drives the live total. */
+  payment: '' | PaymentOption;
   consent: boolean;
 }
 
@@ -54,6 +82,9 @@ type FieldKey =
   | 'phoneNumber'
   | 'email'
   | 'program'
+  | 'frequency'
+  | 'term'
+  | 'payment'
   | 'consent';
 /** true = invalid. Messages are derived at render time so they follow the active language. */
 type FormErrors = Partial<Record<FieldKey, boolean>>;
@@ -68,6 +99,9 @@ const FIELD_ORDER: FieldKey[] = [
   'phoneNumber',
   'email',
   'program',
+  'frequency',
+  'term',
+  'payment',
   'consent',
 ];
 
@@ -79,10 +113,38 @@ const FIELD_IDS: Record<FieldKey, string> = {
   phoneNumber: 'phone',
   email: 'email',
   program: 'program',
+  frequency: 'frequency',
+  term: 'term',
+  /* The radio group has no single input to focus — point at the first one. */
+  payment: 'payment-term',
   consent: 'consent',
 };
 
 const RESUBMIT_THROTTLE_MS = 60_000;
+
+/* ── Duplicate-submit guard ────────────────────────────────────────
+   Swallows a re-submit of the SAME registration within 60s of it being
+   delivered — a double tap, or an impatient second press. Scoped to an
+   identical payload so a second child still sends, and armed only once
+   a send actually succeeded, or "Try again" would silently do nothing
+   for a minute.
+
+   Both halves live at module scope deliberately: reading the clock is
+   not render work, and keeping Date.now() out of the component body
+   keeps that obvious to a reader (and to the react-hooks purity rule,
+   which flags a bare Date.now() inside a component). */
+function isDuplicateSubmit(signature: string, lastSignature: string, lastAt: number): boolean {
+  return signature === lastSignature && Date.now() - lastAt < RESUBMIT_THROTTLE_MS;
+}
+
+function armDuplicateGuard(
+  atRef: { current: number },
+  signatureRef: { current: string },
+  signature: string
+): void {
+  atRef.current = Date.now();
+  signatureRef.current = signature;
+}
 
 /* Input ceilings — kept in step with validateField(), and enforced on the
    inputs too so an oversized payload can never leave the browser. */
@@ -113,8 +175,36 @@ const INITIAL_FORM_DATA: FormData = {
   phoneNumber: '',
   email: '',
   program: '',
+  frequency: '',
+  term: '',
+  payment: '',
   consent: false,
 };
+
+/* ── Pre-selection from the URL ────────────────────────────────────
+   A Register button next to an age group arrives here as
+   /register?age=U10&frequency=3&term=term1, so the parent never has to
+   re-pick what they just clicked (see src/lib/registerLink.ts).
+
+   Every value is parsed, not trusted: anything unrecognised — a stale
+   link, a typo, an age group that no longer exists — is dropped and
+   that field simply starts empty. With no parameters at all this
+   returns INITIAL_FORM_DATA unchanged, so the form behaves exactly as
+   it did before.                                                   */
+function formDataFromParams(params: URLSearchParams, programIds: string[]): FormData {
+  const age = parseProgramId(params.get('age'), programIds);
+  const frequency = parseFrequency(params.get('frequency'));
+  const term = parseTermId(params.get('term'));
+  const payment = parsePaymentOption(params.get('payment'));
+
+  return {
+    ...INITIAL_FORM_DATA,
+    ...(age ? { program: age } : {}),
+    ...(frequency ? { frequency: String(frequency) as '2' | '3' } : {}),
+    ...(term ? { term } : {}),
+    ...(payment ? { payment } : {}),
+  };
+}
 
 /* ── Validation (pure, messages localized through t) ───────────── */
 
@@ -197,6 +287,12 @@ function validateField(
     case 'program':
       if (!data.program) return t('form.err.programRequired');
       return validateProgramAge(data, t, programs);
+    case 'frequency':
+      return data.frequency ? undefined : t('form.err.frequencyRequired');
+    case 'term':
+      return data.term ? undefined : t('form.err.termRequired');
+    case 'payment':
+      return data.payment ? undefined : t('form.err.paymentRequired');
     case 'consent':
       return data.consent ? undefined : t('form.err.consentRequired');
   }
@@ -451,16 +547,25 @@ function SearchableListbox({
 /* ── Main component ────────────────────────────────────────────── */
 
 export default function RegistrationForm() {
-  const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
+  const { t, lang } = useLanguage();
+  const content = useContent();
+  const [searchParams] = useSearchParams();
+
+  /* Read the deep link ONCE, on first render. Re-reading it on every
+     render would fight the parent's own edits: change the age group and
+     the URL's `age` would immediately put it back. */
+  const [formData, setFormData] = useState<FormData>(() =>
+    formDataFromParams(
+      searchParams,
+      content.programs.map(p => p.id)
+    )
+  );
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Partial<Record<FieldKey, boolean>>>({});
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [shaking, setShaking] = useState(false);
   const [botcheck, setBotcheck] = useState(''); // honeypot — humans never see/fill this
   const [summaryMessage, setSummaryMessage] = useState('');
-
-  const { t, lang } = useLanguage();
-  const content = useContent();
 
   const lastSubmitAtRef = useRef(0); // when the last application was delivered
   const lastSubmitSignatureRef = useRef(''); // payload of that application
@@ -476,6 +581,33 @@ export default function RegistrationForm() {
   const isSubmitting = submitState === 'submitting';
 
   const showError = (field: FieldKey) => Boolean(errors[field] && touched[field]);
+
+  /* ── The live quote ──────────────────────────────────────────────
+     Everything below is derived from what is selected, so the summary
+     line and the payment options can never disagree with each other —
+     or with the tables on the Programs page, since all three read the
+     same numbers out of src/data/pricing.ts.                      */
+  const selectedProgram = content.programs.find(p => p.id === formData.program);
+  const selectedTerm: TermRow | undefined = content.payableTerms.find(
+    term => term.id === formData.term
+  );
+  const selectedRow: PricingRow | undefined =
+    selectedProgram && formData.frequency
+      ? pricingRow(selectedProgram.priceBand, Number(formData.frequency) as Frequency)
+      : undefined;
+
+  /** What the chosen payment option comes to. Undefined until it can be known. */
+  const quotedTotal =
+    selectedRow && selectedTerm
+      ? optionTotal(selectedRow, selectedTerm.id as TermId, formData.payment || 'term')
+      : undefined;
+
+  /** Move focus to the field a "change" control points at. */
+  const focusField = (field: FieldKey) => {
+    const el = document.getElementById(FIELD_IDS[field]);
+    el?.focus();
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
 
   /** Localized validation message for an invalid field (derived — always current language). */
   const errorFor = (field: FieldKey): string | undefined =>
@@ -519,9 +651,18 @@ export default function RegistrationForm() {
     revalidate(next, touchedNow);
   };
 
-  const handleProgramSelect = (value: string) => {
-    const next = { ...formData, program: value };
-    const touchedNow = { ...touched, program: true };
+  /**
+   * Commit one of the choice fields (age group, training days, term,
+   * payment). Marks it touched so its own error can show, and
+   * revalidates the whole touched set — the age-vs-squad rule is a
+   * cross-field check and would otherwise go stale.
+   */
+  const handleChoice = <K extends 'program' | 'frequency' | 'term' | 'payment'>(
+    field: K,
+    value: FormData[K]
+  ) => {
+    const next = { ...formData, [field]: value };
+    const touchedNow = { ...touched, [field]: true };
     setFormData(next);
     setTouched(touchedNow);
     revalidate(next, touchedNow);
@@ -576,15 +717,8 @@ export default function RegistrationForm() {
       return;
     }
 
-    // Duplicate guard: swallow a re-submit of the SAME application within 60s
-    // of it being delivered. Scoped to an identical payload so a second child
-    // still sends, and never armed by a failed send — otherwise "Try again"
-    // would silently do nothing for a minute.
     const signature = JSON.stringify(formData);
-    if (
-      signature === lastSubmitSignatureRef.current &&
-      Date.now() - lastSubmitAtRef.current < RESUBMIT_THROTTLE_MS
-    ) {
+    if (isDuplicateSubmit(signature, lastSubmitSignatureRef.current, lastSubmitAtRef.current)) {
       setSubmitState('success');
       return;
     }
@@ -607,6 +741,19 @@ export default function RegistrationForm() {
       `${t('form.waEmail')} ${formData.email.trim()}`,
     ];
     if (program) summaryLines.push(`${t('form.waProgram')} ${program.name} · ${program.ages}`);
+    if (formData.frequency) {
+      summaryLines.push(
+        `${t('form.waFrequency')} ${trainingDaysLabel(t, formData.frequency)}`
+      );
+    }
+    if (selectedTerm) {
+      summaryLines.push(`${t('form.waTerm')} ${selectedTerm.term} (${selectedTerm.dates})`);
+    }
+    if (formData.payment && quotedTotal !== undefined) {
+      summaryLines.push(
+        `${t('form.waPayment')} ${t(`form.pay.${formData.payment}`)} — ${formatOMR(quotedTotal)}`
+      );
+    }
     setSummaryMessage(summaryLines.join('\n'));
 
     /* ── Notification email ────────────────────────────────────────
@@ -616,9 +763,6 @@ export default function RegistrationForm() {
        inbox, and one consistent language keeps triage sane no matter
        which language the parent applied in. */
     const squad = program ? `${program.name} — ${program.ages}` : '';
-    const band = program
-      ? content.priceBands.find(b => b.id === program.priceBand)
-      : undefined;
 
     const emailFields: Record<string, string> = {
       '👤 Player': formData.playerName.trim(),
@@ -633,17 +777,36 @@ export default function RegistrationForm() {
       '──────────────': '',
     };
 
+    /* Deliberately English, and deliberately using the SPLIT terminology —
+       "Training days per week" and "Duration" — so the inbox reads the
+       same way the website does and nobody has to guess which "sessions"
+       a parent meant. */
     if (program) {
       emailFields['📅 Training days'] = program.days;
-      emailFields['🕒 Winter slot'] = program.winterTime;
-      emailFields['🕕 Summer slot'] = program.summerTime;
-      emailFields['⏱️ Session length'] = program.duration;
+      emailFields['🕒 Time'] = program.time;
+      emailFields['⏱️ Duration (one training)'] = program.duration;
     }
-    if (band) {
-      band.rows.forEach(row => {
-        emailFields[`💰 ${row.sessions}`] = `${row.term1} per term · ${row.fullSeason} full season`;
-      });
+    if (formData.frequency) {
+      emailFields['🔁 Training days per week'] = formData.frequency;
     }
+    if (selectedTerm) {
+      emailFields['🗓️ Term'] = `${selectedTerm.term} — ${selectedTerm.dates} (${selectedTerm.duration})`;
+    }
+
+    /* The quote the parent actually saw, so the academy invoices the same
+       figure the website showed them. */
+    if (selectedRow && selectedTerm && formData.payment) {
+      const termId = selectedTerm.id as TermId;
+      const price = termPrice(selectedRow, termId);
+      const chosen =
+        formData.payment === 'term'
+          ? `Pay for the term — ${formatOMR(price.upfront)}`
+          : formData.payment === 'monthly'
+            ? `Monthly instalments — ${selectedTerm.instalments} × ${formatOMR(price.monthly)} = ${formatOMR(monthlyTotal(selectedRow, termId))}`
+            : `Full season — ${formatOMR(selectedRow.fullSeason)} (saves ${formatOMR(seasonSaving(selectedRow))})`;
+      emailFields['💰 Payment choice'] = chosen;
+    }
+
     emailFields['─────────────'] = '';
     emailFields['📨 Submitted'] = submittedAt();
 
@@ -677,9 +840,8 @@ export default function RegistrationForm() {
            that one was sent. A failure here must never reach the visitor. */
         reportFormSubmitted();
 
-        // Arm the duplicate guard only once the application is actually delivered
-        lastSubmitAtRef.current = Date.now();
-        lastSubmitSignatureRef.current = signature;
+        // Arm the duplicate guard only once the registration is actually delivered
+        armDuplicateGuard(lastSubmitAtRef, lastSubmitSignatureRef, signature);
         /* The success screen STAYS until the visitor dismisses it. An auto-
            reset used to yank it away mid-read, taking the WhatsApp
            confirm-faster link with it. */
@@ -740,6 +902,72 @@ export default function RegistrationForm() {
       style={panelTickStyle}
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+        {/* ── What you clicked, shown back to you ────────────────────
+            Appears as soon as an age group is known — whether it came
+            from a Register button on the Programs page or was picked
+            here. The price is computed from the shared pricing data, so
+            it is the same figure the Programs table showed. "Change"
+            just moves focus to the field: nothing is locked. */}
+        {selectedProgram && (
+          <div
+            className="rounded-[2px] p-4"
+            style={{
+              backgroundColor: 'rgba(201,168,76,0.08)',
+              border: '1px solid rgba(201,168,76,0.35)',
+            }}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-inter text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-[#C9A84C]">
+                  {t('form.summaryLabel')}
+                </p>
+                <p className="mt-1.5 font-inter text-[0.9375rem] leading-[1.6] text-[#F5F1EB]">
+                  <span className="font-semibold">{selectedProgram.name}</span>
+                  <span className="text-[#8A94A6]"> · {selectedProgram.ages}</span>
+                  {formData.frequency && (
+                    <>
+                      <span aria-hidden="true" className="text-[#8A94A6]"> · </span>
+                      <span>
+                        {trainingDaysLabel(t, formData.frequency)}
+                      </span>
+                    </>
+                  )}
+                  {selectedTerm && (
+                    <>
+                      <span aria-hidden="true" className="text-[#8A94A6]"> · </span>
+                      <span>
+                        {selectedTerm.term}{' '}
+                        <span className="text-[#8A94A6]">({selectedTerm.dates})</span>
+                      </span>
+                    </>
+                  )}
+                  {quotedTotal !== undefined && (
+                    <>
+                      <span aria-hidden="true" className="text-[#8A94A6]"> · </span>
+                      <span className="font-semibold text-[#E0C878]">
+                        {formatOMR(quotedTotal)}
+                      </span>
+                    </>
+                  )}
+                </p>
+                {quotedTotal === undefined && (
+                  <p className="mt-1 font-inter text-[0.75rem] leading-[1.5] text-[#8A94A6]">
+                    {t('form.summaryIncomplete')}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => focusField('program')}
+                className="inline-flex shrink-0 items-center gap-1.5 font-inter text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-[#C9A84C] transition-opacity duration-300 hover:opacity-75"
+              >
+                <Pencil size={12} aria-hidden="true" />
+                {t('form.summaryChange')}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Player Full Name */}
         <div className="flex flex-col gap-2">
           <label htmlFor="player-name" className={labelClass}>
@@ -995,7 +1223,11 @@ export default function RegistrationForm() {
           )}
         </div>
 
-        {/* Program Interest (required) */}
+        {/* ── The programme choice: age group, training days, term ────
+            Three separate questions, because collapsing them was what
+            made "session" ambiguous in the first place. */}
+
+        {/* Age group (required) */}
         <div className="flex flex-col gap-2">
           <label htmlFor="program" className={labelClass}>
             {t('form.program')}
@@ -1006,7 +1238,7 @@ export default function RegistrationForm() {
               id="program"
               disabled={isSubmitting}
               value={formData.program}
-              onChange={e => handleProgramSelect(e.target.value)}
+              onChange={e => handleChoice('program', e.target.value)}
               onBlur={() => handleBlur('program')}
               aria-required="true"
               aria-invalid={showError('program')}
@@ -1024,7 +1256,7 @@ export default function RegistrationForm() {
                   value={p.id}
                   style={{ backgroundColor: '#060F25', color: '#F5F1EB' }}
                 >
-                  {p.name} · {p.ages}
+                  {p.name} · {p.ages} · {p.time}
                 </option>
               ))}
             </select>
@@ -1040,6 +1272,195 @@ export default function RegistrationForm() {
             </p>
           )}
         </div>
+
+        {/* Training days per week (required) — how OFTEN, never "sessions" */}
+        <div className="flex flex-col gap-2">
+          <label htmlFor="frequency" className={labelClass}>
+            {t('form.frequency')}
+            <RequiredMark />
+          </label>
+          <div className="relative">
+            <select
+              id="frequency"
+              disabled={isSubmitting}
+              value={formData.frequency}
+              onChange={e => handleChoice('frequency', e.target.value as FormData['frequency'])}
+              onBlur={() => handleBlur('frequency')}
+              aria-required="true"
+              aria-invalid={showError('frequency')}
+              aria-describedby={`form-frequency-hint${showError('frequency') ? ' frequency-error' : ''}`}
+              className={`${inputBaseClass} appearance-none pe-10 cursor-pointer ${fieldBorderClass(
+                showError('frequency')
+              )} ${formData.frequency ? 'text-white' : 'text-[rgba(138,148,166,0.85)]'}`}
+            >
+              <option value="" style={{ backgroundColor: '#060F25', color: '#F5F1EB' }}>
+                {t('form.frequencyPlaceholder')}
+              </option>
+              {FREQUENCIES.map(f => (
+                <option
+                  key={f}
+                  value={String(f)}
+                  style={{ backgroundColor: '#060F25', color: '#F5F1EB' }}
+                >
+                  {trainingDaysLabel(t, f)}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={16}
+              className="absolute end-3 top-1/2 -translate-y-1/2 text-[#C9A84C] pointer-events-none"
+              aria-hidden="true"
+            />
+          </div>
+          <p id="form-frequency-hint" className="font-inter text-[0.75rem] leading-[1.5] text-[#8A94A6]">
+            {t('form.frequencyHint', { days: content.trainingDays.join(' · ') })}
+          </p>
+          {showError('frequency') && (
+            <p id="frequency-error" role="alert" className={errorTextClass}>
+              {errorFor('frequency')}
+            </p>
+          )}
+        </div>
+
+        {/* Term (required) — labelled with its dates, never just "Term 2" */}
+        <div className="flex flex-col gap-2">
+          <label htmlFor="term" className={labelClass}>
+            {t('form.term')}
+            <RequiredMark />
+          </label>
+          <div className="relative">
+            <select
+              id="term"
+              disabled={isSubmitting}
+              value={formData.term}
+              onChange={e => handleChoice('term', e.target.value as FormData['term'])}
+              onBlur={() => handleBlur('term')}
+              aria-required="true"
+              aria-invalid={showError('term')}
+              aria-describedby={showError('term') ? 'term-error' : undefined}
+              className={`${inputBaseClass} appearance-none pe-10 cursor-pointer ${fieldBorderClass(
+                showError('term')
+              )} ${formData.term ? 'text-white' : 'text-[rgba(138,148,166,0.85)]'}`}
+            >
+              <option value="" style={{ backgroundColor: '#060F25', color: '#F5F1EB' }}>
+                {t('form.termPlaceholder')}
+              </option>
+              {content.payableTerms.map(term => (
+                <option
+                  key={term.id}
+                  value={term.id}
+                  style={{ backgroundColor: '#060F25', color: '#F5F1EB' }}
+                >
+                  {term.term} · {term.dates} · {term.duration}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={16}
+              className="absolute end-3 top-1/2 -translate-y-1/2 text-[#C9A84C] pointer-events-none"
+              aria-hidden="true"
+            />
+          </div>
+          {showError('term') && (
+            <p id="term-error" role="alert" className={errorTextClass}>
+              {errorFor('term')}
+            </p>
+          )}
+        </div>
+
+        {/* ── How you would like to pay ───────────────────────────────
+            A radio group, with each option's TOTAL beside it, so the
+            full-season saving is visible at the moment of choosing
+            rather than buried on another page. The totals only appear
+            once the age group, training days and term are known —
+            there is no price to state before that. */}
+        <fieldset className="flex flex-col gap-2" disabled={isSubmitting}>
+          <legend className={labelClass}>
+            {t('form.payment')}
+            <RequiredMark />
+          </legend>
+
+          {!selectedRow || !selectedTerm ? (
+            <p className="font-inter text-[0.8125rem] leading-[1.6] text-[#8A94A6]">
+              {t('form.paymentLocked')}
+            </p>
+          ) : (
+            <>
+              <div className="mt-1 flex flex-col gap-2">
+                {PAYMENT_OPTIONS.map(option => {
+                  const termId = selectedTerm.id as TermId;
+                  const price = termPrice(selectedRow, termId);
+                  const total = optionTotal(selectedRow, termId, option);
+                  const checked = formData.payment === option;
+
+                  /* The one line under each option that says what the
+                     figure actually means. Monthly shows its arithmetic,
+                     so "OMR 94 a month" can never read as the cheapest. */
+                  const detail =
+                    option === 'term'
+                      ? t('form.pay.termDetail', { term: selectedTerm.term })
+                      : option === 'monthly'
+                        ? t('form.pay.monthlyDetail', {
+                            count: selectedTerm.instalments,
+                            each: formatOMR(price.monthly),
+                          })
+                        : t('form.pay.seasonDetail', {
+                            pct: SEASON_DISCOUNT_PCT,
+                            saving: formatOMR(seasonSaving(selectedRow)),
+                          });
+
+                  return (
+                    <label
+                      key={option}
+                      htmlFor={`payment-${option}`}
+                      className="flex cursor-pointer items-start gap-3 rounded-[2px] p-3 transition-colors duration-200"
+                      style={{
+                        backgroundColor: checked
+                          ? 'rgba(201,168,76,0.1)'
+                          : 'rgba(6,15,37,0.6)',
+                        border: `1px solid ${checked ? '#C9A84C' : 'rgba(201,168,76,0.25)'}`,
+                      }}
+                    >
+                      <input
+                        id={`payment-${option}`}
+                        type="radio"
+                        name="payment"
+                        value={option}
+                        checked={checked}
+                        onChange={() => handleChoice('payment', option)}
+                        onBlur={() => handleBlur('payment')}
+                        aria-describedby={showError('payment') ? 'payment-error' : undefined}
+                        className="mt-1 h-4 w-4 shrink-0 accent-[#C9A84C]"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                          <span className="font-inter text-[0.9375rem] font-semibold text-[#F5F1EB]">
+                            {t(`form.pay.${option}`)}
+                          </span>
+                          <span className="font-inter text-[1rem] font-semibold text-[#E0C878]">
+                            {formatOMR(total)}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block font-inter text-[0.75rem] leading-[1.5] text-[#8A94A6]">
+                          {detail}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="font-inter text-[0.75rem] leading-[1.6] text-[#8A94A6]">
+                {content.monthlyWarning}
+              </p>
+            </>
+          )}
+
+          {showError('payment') && (
+            <p id="payment-error" role="alert" className={errorTextClass}>
+              {errorFor('payment')}
+            </p>
+          )}
+        </fieldset>
 
         {/* Parental Consent */}
         <div className="flex flex-col gap-2">

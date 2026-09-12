@@ -4,6 +4,7 @@ import { useGSAP } from '@gsap/react';
 import { Link } from 'react-router-dom';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useLanguage } from '@/i18n/useLanguage';
+import RegisterCta from '@/components/RegisterCta';
 
 export default function NotFoundPage() {
   const { t } = useLanguage();
@@ -85,6 +86,9 @@ export default function NotFoundPage() {
           {t('notFound.backHome')}
         </Link>
       </div>
+
+      {/* A lost visitor still gets the one action they came for. */}
+      <RegisterCta />
     </div>
   );
 }

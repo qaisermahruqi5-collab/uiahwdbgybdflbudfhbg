@@ -5,6 +5,8 @@ import { useGSAP } from '@gsap/react';
 import { Instagram, MessageCircle } from 'lucide-react';
 import { SITE, whatsappLink } from '@/config/site';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import Breadcrumbs from '@/components/Breadcrumbs';
+import RegisterCta from '@/components/RegisterCta';
 import { useLanguage } from '@/i18n/useLanguage';
 import { useContent } from '@/i18n/useContent';
 
@@ -50,6 +52,12 @@ export default function NewsPage() {
 
   return (
     <div ref={containerRef} className="pt-24">
+      <div
+        className="mx-auto max-w-[1280px]"
+        style={{ padding: 'clamp(1rem, 3vw, 2rem) clamp(1.5rem, 5vw, 4rem) 0' }}
+      >
+        <Breadcrumbs trail={[{ label: t('nav.news') }]} />
+      </div>
       {/* Section Divider */}
       <div className="w-full h-[1px]" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.4) 50%, transparent 100%)' }} />
 
@@ -217,6 +225,8 @@ export default function NewsPage() {
           </div>
         </div>
       </section>
+
+      <RegisterCta />
     </div>
   );
 }

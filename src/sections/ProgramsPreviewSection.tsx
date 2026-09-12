@@ -3,6 +3,8 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { Link } from 'react-router-dom';
+import { formatOMR } from '@/data/pricing';
+import { registerLink } from '@/lib/registerLink';
 import { useLanguage } from '@/i18n/useLanguage';
 import { useContent } from '@/i18n/useContent';
 import SectionHeader from '@/components/design/SectionHeader';
@@ -56,7 +58,13 @@ export default function ProgramsPreviewSection() {
             const band = content.priceBands.find(b => b.id === program.priceBand);
             return (
               <div key={program.id} className="reveal">
-                <div className="card-panel relative h-full flex flex-col gap-4 p-8 pt-12">
+                {/* The whole card links to this age group's block on the
+                    Programs page, so a tap from the homepage lands on the
+                    fees and the Register button for THAT squad. */}
+                <Link
+                  to={`/programs#${program.id}`}
+                  className="card-panel relative h-full flex flex-col gap-4 p-8 pt-12"
+                >
                   {/* Ages corner tab */}
                   <span
                     className="absolute top-0 end-0 inline-flex items-center px-3 py-[0.375rem] rounded-[2px] font-inter text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-[#060F25] bg-[#C9A84C]"
@@ -70,24 +78,34 @@ export default function ProgramsPreviewSection() {
                     {program.description}
                   </p>
 
-                  {/* Fee summary — the 2-sessions-a-week term price for this band */}
-                  {band && (
+                  {/* Time and duration — the two facts a parent scans for */}
+                  <div className="flex flex-col gap-1">
+                    <span className="font-inter text-[0.8125rem] text-[#F5F1EB]">
+                      {program.time}
+                    </span>
+                    <span className="font-inter text-[0.75rem] text-[#8A94A6]">
+                      {program.days} · {program.duration}
+                    </span>
+                  </div>
+
+                  {/* Fee summary — the cheapest entry point for this band
+                      (Term 1, two training days a week), formatted from the
+                      shared pricing data. The footnote below says which
+                      rate it is, so it cannot be mistaken for the total. */}
+                  {band && band.rows.length > 0 && (
                     <div className="mt-auto flex flex-col gap-2 pt-2">
                       <span className="hairline" aria-hidden="true" />
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="font-inter text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-[#8A94A6]">
                           {t('programsPreview.feesFrom')}
                         </span>
-                        <span className="font-inter text-[0.9375rem] font-semibold text-[#E0C878] whitespace-nowrap">
-                          {band.rows[0].term1}{' '}
-                          <span className="font-normal text-[0.6875rem] text-[#8A94A6]">
-                            {t('programs.perTerm')}
-                          </span>
+                        <span className="whitespace-nowrap font-inter text-[0.9375rem] font-semibold text-[#E0C878]">
+                          {formatOMR(band.rows[0].term1.upfront)}
                         </span>
                       </div>
                     </div>
                   )}
-                </div>
+                </Link>
               </div>
             );
           })}
@@ -99,9 +117,12 @@ export default function ProgramsPreviewSection() {
         </p>
 
         {/* View All Link */}
-        <div className="reveal flex justify-center mt-10">
-          <Link to="/programs" className="btn-outline">
+        <div className="reveal mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link to="/programs#pricing" className="btn-outline">
             {t('programsPreview.viewAll')}
+          </Link>
+          <Link to={registerLink()} className="btn-primary">
+            {t('cta.button')}
           </Link>
         </div>
       </div>

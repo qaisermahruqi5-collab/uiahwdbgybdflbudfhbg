@@ -6,6 +6,8 @@ import type { LucideIcon } from 'lucide-react';
 import { ClipboardList, MessageCircle, Send, ShieldCheck, Baby, Timer, Mail } from 'lucide-react';
 import { SITE } from '@/config/site';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import Breadcrumbs from '@/components/Breadcrumbs';
+import RegisterCta from '@/components/RegisterCta';
 import { useLanguage } from '@/i18n/useLanguage';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -96,6 +98,12 @@ export default function PrivacyPage() {
 
   return (
     <div ref={containerRef} className="pt-24">
+      <div
+        className="mx-auto max-w-[1280px]"
+        style={{ padding: 'clamp(1rem, 3vw, 2rem) clamp(1.5rem, 5vw, 4rem) 0' }}
+      >
+        <Breadcrumbs trail={[{ label: t('footer.privacyLink') }]} />
+      </div>
       {/* Section Divider */}
       <div className="w-full h-[1px]" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.4) 50%, transparent 100%)' }} />
 
@@ -155,6 +163,8 @@ export default function PrivacyPage() {
           </div>
         </div>
       </section>
+
+      <RegisterCta />
     </div>
   );
 }

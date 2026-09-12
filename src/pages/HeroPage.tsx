@@ -11,7 +11,9 @@ import Stat from '@/components/design/Stat';
 import WhyUsSection from '@/sections/WhyUsSection';
 import ProgramsPreviewSection from '@/sections/ProgramsPreviewSection';
 import GallerySection from '@/sections/GallerySection';
+import QuickLinksSection from '@/sections/QuickLinksSection';
 import CtaBandSection from '@/sections/CtaBandSection';
+import { registerLink } from '@/lib/registerLink';
 
 export default function HeroPage() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,10 +113,10 @@ export default function HeroPage() {
 
               {/* CTA Buttons */}
               <div className="hero-cta flex flex-wrap items-center justify-center md:justify-start gap-4">
-                <Link to="/join" className="btn-primary">
+                <Link to={registerLink()} className="btn-primary">
                   {t('hero.apply')}
                 </Link>
-                <Link to="/programs" className="btn-outline">
+                <Link to="/programs#pricing" className="btn-outline">
                   {t('hero.explore')}
                 </Link>
               </div>
@@ -174,6 +176,11 @@ export default function HeroPage() {
           </div>
         </div>
       </section>
+
+      {/* AT A GLANCE — the four things parents arrive looking for, in
+          reach before any scrolling on a phone. This is the homepage half
+          of the findability fix; the sticky header is the other half. */}
+      <QuickLinksSection />
 
       {/* Academy claims ticker (replaces the gold gradient divider) */}
       <Marquee items={[...content.heroChips, content.features[1].title]} />

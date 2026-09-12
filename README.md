@@ -1,13 +1,24 @@
 # Genoa Academy Oman — Owner's Handbook
 
-Welcome! This is the upgraded website for **Genoa Academy Oman**, a youth football academy in Muscat, Oman. This guide tells you, in plain language, where everything lives and how to update it.
+Welcome! This is the website for **Genoa Academy Oman**, a youth football academy in Muscat, Oman. This guide tells you, in plain language, where everything lives and how to update it.
 
 ## What the Site Is
 
-- **Pages:** Home, The Academy, Programs (schedule + full pricing), News, Calendar & Training Schedule, Join (registration form), Privacy, and a friendly 404 page.
-- **Age groups:** U6, U8, U10, U12, U14 and U16 — players aged 5 to 16. All training runs Sunday, Tuesday and Wednesday, with families choosing 2 or 3 sessions per week.
-- **Bilingual:** English and Arabic, with an EN/AR toggle in the navigation. Arabic switches the whole site to right-to-left (RTL) automatically.
-- **Registration:** The Join form emails applications to you via Web3Forms, with WhatsApp as a backup contact option.
+- **Pages:** Home, Academy (with the Pathway, Coaches and Location sections), Programs & Fees, FAQ, News, Calendar & Training Schedule, Register, Privacy, and a friendly 404 page.
+- **Age groups:** U6, U8, U10, U12, U14 and U16 — players aged 5 to 16. All training runs Sunday, Tuesday and Wednesday, and families choose **2 or 3 training days per week** (two of those three days, or all three).
+- **Bilingual:** English and Arabic, with an EN/عربي toggle in the navigation. Arabic switches the whole site to right-to-left (RTL) automatically.
+- **Registration:** The Register form emails applications to you via Web3Forms, with WhatsApp as a backup contact option.
+
+### Two words that must never blur again
+
+A stakeholder review found the word *session* being used for two different things, and it confused parents. The site now keeps them apart, everywhere — pages, the registration form, the notification email, the FAQ, Studio and the Telegram bot:
+
+| Word | Means | Example |
+|---|---|---|
+| **Duration** | How long **one** training lasts | 60 minutes (U6–U8), 90 minutes (U10–U16) |
+| **Training days per week** | How **often** a child trains | 2 or 3 |
+
+If you are writing new copy: never write "session time" or "2 sessions a week".
 
 ---
 
@@ -32,23 +43,47 @@ Open **`src/config/site.ts`**. Every contact detail on the site comes from this 
 
 > **⚠️ Changing `email` does NOT change where applications are delivered.** The destination inbox is baked into `web3formsKey` by Web3Forms — `email` only controls the address shown on the site and used as the reply-to. To move delivery, get a new key at [web3forms.com](https://web3forms.com) (enter the new address, they email you a key), paste it into `web3formsKey`, rebuild, and send one test application to confirm it lands.
 
+### PRICES — one file, and only one
+
+**Every price on the site comes from `src/data/pricing.ts`, as numbers.** Nothing else on the site contains an amount: the Programs tables, the age-group blocks, the homepage "from" figures, the live totals in the registration form and the figures in the notification email all read from that file and format them the same way (`OMR 195`).
+
+That means:
+
+- **To change a fee, change it once**, in `PRICING_BANDS` in `src/data/pricing.ts`. Everywhere it appears updates together.
+- **Do not put prices in the Arabic file.** `src/data/content-ar.ts` deliberately has none — Arabic and English render the same numbers, so they cannot drift apart.
+- The *saving* shown under each Full Season price (`Save OMR 50 vs. paying term by term`) is **calculated**, not typed. It is the three terms added up, minus the season price.
+
+> **Why the three terms added up (485 / 670 / 500 / 685) never appears as a price:** in the review those numbers read like a second, more expensive price list. They are only the arithmetic behind the discount, so the code uses them solely inside the "you save X" line. Please keep it that way.
+
+The same file also holds the season's structure: how many weeks each term runs and **how many monthly instalments it is paid over** (3 / 2 / 3). Those counts are why "OMR 65 a month" is never ambiguous.
+
+### Term dates — edited in Studio, not in code
+
+Term **labels** ("Term 1") stay the same year to year; only the **dates** change. So the dates live in `content/schedule.json` and are editable from Studio → Calendar, like the training times. Each August, open Studio and update the three date lines. Nothing else needs touching.
+
 ### Text content — one English master + Arabic translations
 
-- **`src/data/content.ts`** — the marketing copy: hero taglines, feature cards, The Academy copy and stats, age-group names and descriptions, pricing tables, what's included, terms & policies, coaches and FAQs. Anything still needing your information is marked `TODO(OWNER)` (currently just the venue name).
-- **News posts and the training schedule are NOT in this file** — they live in `content/news.json` and `content/schedule.json` and are edited from the dashboard or Telegram. See *Editing news & the calendar* below.
-- **`src/data/content-ar.ts`** — the matching Arabic translations. When you change English text, update the Arabic copy to match (or ask your developer/translator).
+- **`src/data/content.ts`** — the marketing copy: hero taglines, feature cards, Academy copy and stats, the five Pathway stages, the venue details, age-group descriptions, what your child gets, terms & policies, and the FAQ. Anything still awaiting your answer is listed in `OPEN_ITEMS` and shows on the site as a visibly-marked "to be confirmed" note — never as an invented fact.
+- **`src/data/coaches.ts`** — the coaching staff. Adding a coach is an edit to this file only; see *Adding a coach* below.
+- **News posts, the training schedule and the term dates are NOT in these files** — they live in `content/news.json` and `content/schedule.json` and are edited from Studio or Telegram. See *Editing news & the calendar* below.
+- **`src/data/content-ar.ts`** — the matching Arabic translations. When you change English text, update the Arabic copy to match (or ask your developer/translator). Arabic groups and FAQ items are matched **by position**, so keep the two files in the same order.
 
-### Prices, days and times
+### Adding a coach
 
-All programme figures live in **`src/data/content.ts`**:
+Open **`src/data/coaches.ts`** and add an entry. Each coach has a name, role, credential line, languages, a short card bio and an optional longer `detail` list that appears behind "Read more".
 
-- `PROGRAMS` — one entry per age group (U6 → U16): ages and description. Its days and times come from `content/schedule.json`, edited from the dashboard or the bot.
-- `TERMS` — read from `content/schedule.json`; edit the term weeks in the dashboard.
-- `PRICE_BANDS` — the fee tables. Prices are grouped into two bands (`u6u8` and `u10u16`); each band has one row for **2 sessions / week** and one for **3 sessions / week**, with each term's upfront price, its monthly instalment, and the Full Season price.
-- `INCLUDED` — the "what every registered player receives" list.
-- `POLICIES` — the terms, payment, cancellation and refund summaries.
+1. Put the portrait in `public/` (e.g. `public/coach-name.jpg`, plus a `.webp` twin for speed — see *How to update images* below).
+2. Fill in `photo` with both paths and the pixel size. Portraits are cropped to a 3:4 shape automatically, so any portrait-ish photo works.
+3. Set `status: 'confirmed'`.
 
-Change a number in one of these arrays and it updates everywhere it appears (programme cards, pricing tables, calendar, FAQ answers are written separately in `FAQS`).
+Entries left as `status: 'placeholder'` render as an obviously-empty slot labelled "Open position", so an unfinished card can never be mistaken for a real person. Two such slots are in the file now, waiting on names and photos.
+
+### Programme details, days and times
+
+- `PROGRAMS` in `src/data/content.ts` — one entry per age group (U6 → U16): the age line and the description. Its days, time, duration and the per-week choice all come from `content/schedule.json`, edited from Studio or the bot.
+- `INCLUDED` — the "what your child gets" list (the client-approved wording).
+- `POLICIES` — the terms, payment and cancellation summaries.
+- `FAQ_GROUPS` — the FAQ page, grouped into sections. **Each question's `id` is a web address** (`/#/faq#faq-instalments`), so people can be sent straight to one answer. Changing an `id` breaks links that have already been shared — add new questions rather than renaming old ones.
 
 ### News posts
 
@@ -91,12 +126,43 @@ Upload **everything inside `dist/`** to your host:
 ## BEFORE GOING LIVE — Checklist
 
 - [ ] **Domain:** replace the placeholder domain in `public/sitemap.xml` and `public/robots.txt`, and set the absolute `og:image` URL in `index.html` (each spot is marked with a `TODO(owner)` comment).
-- [ ] **Content:** fill every `TODO(OWNER)` item in `src/data/content.ts` (and mirror it in `src/data/content-ar.ts`) — currently just the training venue name in the FAQ.
+- [ ] **Open items:** answer the five questions in *WAITING ON YOU* below, then replace the matching entries in `OPEN_ITEMS` (`src/data/content.ts`) and their Arabic twins.
+- [ ] **Coaches:** supply the remaining names, roles and photographs, and fill in the two placeholder slots in `src/data/coaches.ts`.
 - [ ] **News:** replace the three seeded posts using Studio at `/studio/` or the Telegram bot.
-- [ ] **Prices:** confirm the figures in `PRICE_BANDS` still match the current Programme & Pricing Guide before launch.
+- [ ] **Prices:** confirm the figures in `PRICING_BANDS` (`src/data/pricing.ts`) still match the current Programme & Pricing Guide before launch.
+- [ ] **Term dates:** confirm this season's three date ranges in Studio → Calendar.
 - [ ] **Form test:** submit a real test registration and confirm the email arrives in your inbox.
 - [ ] **Spam protection:** enable reCAPTCHA for your key in the Web3Forms dashboard.
 - [ ] **Analytics (optional):** in `index.html`, replace `your-domain.com` and uncomment the Plausible snippet marked `ANALYTICS (optional)`.
+
+---
+
+## WAITING ON YOU — five open questions
+
+The site is complete and live-able, but five things could not be written
+because nobody has the answer yet. **None of them has been guessed at.** Each
+one shows on the site as a visibly-marked *"(to be confirmed)"* note, and each
+is listed in `OPEN_ITEMS` in `src/data/content.ts` (with its Arabic twin in
+`src/data/content-ar.ts`). Answer one, replace its text in both files, and the
+"to be confirmed" label goes away on its own.
+
+| # | The question | Where it shows now |
+|---|---|---|
+| 1 | **Is there a one-off registration fee?** How much, and is it included in or added to the first payment? The Programme & Pricing Guide does not mention one; the review discussion did. | Programs page, under the fees · FAQ → Fees & payment |
+| 2 | **Are monthly instalments equal or front-loaded?** The published monthly figures are equal per month. A 50% / 25% / 25% split was discussed — confirm before changing anything, because the figures on the site are the guide's. | Programs page, under the fees |
+| 3 | **Coach names and photographs** beyond Ivan Potepan. | Coaches section — two labelled "Open position" cards |
+| 4 | **Getting here, parking and drop-off** — the practical arrival note for training evenings. | Location section · FAQ → Location |
+| 5 | **Is the kit cost included in the fee?** The guide says official Genoa training kit is provided; confirm it is inside the term fee and the site will say so plainly. | FAQ → Fees & payment |
+
+Also worth a decision:
+
+- **Refund & cancellation policy.** The site says the written policy is shared at
+  registration, because no published summary exists yet. Send the wording and it
+  can go on the page.
+- **`src/config/site.ts` → `web3formsKey`.** Registrations still land in
+  `qaisermahruqi10@gmail.com`, not the `GAO@genoaacademyom.com` address shown on
+  the site. Generate a new Web3Forms key for that inbox when you want delivery
+  moved.
 
 ---
 
@@ -108,7 +174,10 @@ Upload **everything inside `dist/`** to your host:
 
 The CSP is written against exactly what this site loads. **If you add anything third-party — an analytics script, a Google Font, a YouTube embed, a booking widget — the browser will block it until you widen the matching directive.** Symptoms are always the same: the thing silently doesn't appear, and the browser console shows a "Refused to load…" message naming the directive to change.
 
-One special case: the CSP pins the inline structured-data (JSON-LD) block in `index.html` by hash. If you edit that block, regenerate the hash:
+Two things already depend on this:
+
+- **The map** in the Location section is a Google Maps iframe, so the CSP allows `frame-src https://www.google.com`. Remove the map and you can remove that directive; change map providers and you must change it.
+- The CSP pins the inline structured-data (JSON-LD) block in `index.html` by hash. If you edit that block, regenerate the hash:
 
 ```bash
 npm run csp-hash
@@ -158,7 +227,7 @@ Go to **`/studio/`** on your site (`genoaacademyom.com/studio/`). It is
   until you edit it by hand.
 - Photos are resized in your browser before upload, so a 12MP phone picture
   never travels at full size.
-- **Calendar** — change each squad's days, winter and summer slots and session
+- **Calendar** — change each squad's days, its training time, how long one
   length, plus the term weeks. Squads cannot be added or removed here; that is
   a code change, deliberately.
 - **Status & Bot** — who is on the site right now, applications today, whether
@@ -239,7 +308,7 @@ there **everything is a button** — you never have to remember a command.
 | Button | What happens |
 |---|---|
 | 📝 Write a news post | Four short answers: headline, summary, photo (optional), Arabic (optional). You see the finished post and nothing goes live until you tap **Publish**. |
-| 🗓 Change training times | Pick a squad from the buttons, then change its winter slot, summer slot and session length. Skip anything you want left alone. |
+| 🗓 Change training times | Pick a squad from the buttons, then change its training time and the duration of one training. Skip anything you want left alone. |
 | 📰 Recent posts | The latest posts, each with a delete button — no ids to copy. |
 | ❓ How this works | The same explanation, in the chat. |
 | 🔒 Sign out | Ends the 12-hour session. |
@@ -343,8 +412,10 @@ how many messages are queued, and the last error Telegram reported. Press
 ## TECH NOTES
 
 - **HashRouter** is used (`/#/about`-style URLs) so the site works on any static host with **zero configuration**. If you later want cleaner URLs and better SEO, switch to BrowserRouter and add rewrite rules on your host — a small developer task.
-- **Fonts are self-hosted** (Bebas Neue + Inter), so no external font requests and no layout shift.
-- **The form submits via Web3Forms** using a background fetch (no page redirect), includes spam honeypot + consent checkbox, and **WhatsApp remains a backup CTA** throughout the site.
+- **Deep links to sections.** Because the URL's one `#` is already spent on the route, the browser never scrolls to `#coaches` by itself. `src/components/ScrollToHash.tsx` does it, and it is the single owner of scroll position after any navigation — don't add a second scroll-to-top anywhere. Sections that can be linked to carry the `.scroll-anchor` class so the sticky header does not cover the heading; the offset is defined twice on purpose (`NAV_OFFSET` in that file, `scroll-margin-top` in `src/index.css`) and the two must stay in step.
+- **Register links carry the choice.** Every Register button that sits next to an age group builds its URL through `src/lib/registerLink.ts` — `/#/register?age=U10&frequency=3&term=term1` — and the form reads those parameters once on mount. Anything it does not recognise is dropped and that field starts empty, so an old or hand-edited link degrades instead of breaking. `/#/join` still works and redirects to `/#/register`, query string intact, because older links and messages point at it.
+- **Fonts are self-hosted** (Bebas Neue + Inter + Cairo), so no external font requests and no layout shift.
+- **The form submits via Web3Forms** using a background fetch (no page redirect), includes spam honeypot + consent checkbox, and **WhatsApp remains a backup CTA** throughout the site. The notification email now also carries the training days, the term and the payment option the parent chose, so you invoice the same figure the website showed them.
 
 ---
 

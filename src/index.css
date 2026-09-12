@@ -448,3 +448,35 @@ html[dir='rtl'] *::after {
     transform: translateX(-50%);
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   DEEP-LINK TARGETS & PATHWAY LAYOUT
+   Added for the navigation/findability rebuild.
+   ══════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  /* ── Anchor clearance ──────────────────────────────────────────────
+     Any section that can be deep-linked (#pathway, #coaches, #location,
+     #pricing, #schedule, #terms, an age group, an FAQ answer) carries
+     this. Without it the sticky navbar sits on top of the heading you
+     just linked someone to.
+
+     ScrollToHash applies the same offset when it scrolls with Lenis; this
+     covers the cases the browser handles itself — a plain in-page anchor,
+     :target, and find-in-page. Keep the two numbers in step: the constant
+     lives in src/components/ScrollToHash.tsx as NAV_OFFSET. */
+  .scroll-anchor {
+    scroll-margin-top: 104px;
+  }
+
+  /* ── Pathway stagger (desktop only) ────────────────────────────────
+     Each card drops a little below the one before it, so the row of five
+     reads as a progression rather than five parallel boxes. --step is set
+     inline per <li> by PathwaySection; below `lg` the list is a vertical
+     timeline and no offset applies. */
+  @media (min-width: 1024px) {
+    .pathway-card {
+      margin-block-start: calc(var(--step, 0) * 1.15rem);
+    }
+  }
+}

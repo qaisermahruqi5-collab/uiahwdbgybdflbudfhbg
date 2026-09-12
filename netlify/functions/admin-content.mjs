@@ -69,26 +69,41 @@ function sanitiseSchedule(payload, current) {
   if (!payload || !Array.isArray(payload.squads)) throw new Error('schedule must have a squads array');
 
   // Squad ids are fixed by the site; an editor may change times, never the set.
+  // ═══════════════════════════════════════════════════════════════
+  // THIS FUNCTION IS AN ALLOW-LIST, NOT A PASS-THROUGH. Each object is
+  // rebuilt field by field, so a field missing from the lists below is
+  // DELETED from content/schedule.json on the next save — silently, and
+  // the site then renders a blank where it used to be. If you add a
+  // field to the schedule file, add it here too.
+  //
+  // TERMINOLOGY (matches src/data/content.ts — do not reintroduce
+  // "sessions", which used to mean both of these at once):
+  //   time      the daily slot, e.g. '6:00 – 7:30 pm'
+  //   duration  how long ONE training lasts, e.g. '90 minutes'
+  //   frequency the per-week choice, e.g. '2 or 3 training days / week'
+  // ═══════════════════════════════════════════════════════════════
   const allowed = new Set((current?.squads ?? []).map(s => s.id));
   const squads = payload.squads
     .filter(s => allowed.size === 0 || allowed.has(s?.id))
     .map(s => ({
       id: str(s.id, 20),
       days: str(s.days, 120), daysAr: str(s.daysAr, 120),
-      winterTime: str(s.winterTime, 120), winterTimeAr: str(s.winterTimeAr, 120),
-      summerTime: str(s.summerTime, 120), summerTimeAr: str(s.summerTimeAr, 120),
+      time: str(s.time, 120), timeAr: str(s.timeAr, 120),
       duration: str(s.duration, 60), durationAr: str(s.durationAr, 60),
-      sessions: str(s.sessions, 120), sessionsAr: str(s.sessionsAr, 120),
+      frequency: str(s.frequency, 120), frequencyAr: str(s.frequencyAr, 120),
     }));
 
   if (squads.length !== (current?.squads ?? squads).length) {
     throw new Error('schedule must contain every squad — none may be added or removed here');
   }
 
+  // `dates` is the only part of a term that changes year to year, which is
+  // why the label ('Term 1') and the dates are separate fields.
   const terms = (Array.isArray(payload.terms) ? payload.terms : []).map(t => ({
     id: str(t.id, 20),
     term: str(t.term, 80), termAr: str(t.termAr, 80),
     duration: str(t.duration, 60), durationAr: str(t.durationAr, 60),
+    dates: str(t.dates, 120), datesAr: str(t.datesAr, 120),
   }));
 
   // Preserve the weekly grid headings. Omitting them here would silently

@@ -2,10 +2,11 @@ import { useRef } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import RegistrationForm from '../components/RegistrationForm';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useLanguage } from '@/i18n/useLanguage';
+import Breadcrumbs from '@/components/Breadcrumbs';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -13,6 +14,7 @@ export default function RegistrationPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const { t, dir } = useLanguage();
+  const { search } = useLocation();
 
   usePageTitle(t('page.join'), t('meta.joinDesc'));
 
@@ -51,8 +53,12 @@ export default function RegistrationPage() {
 
   return (
     <div ref={containerRef} className="pt-24">
-      {/* Back Button */}
-      <div className="max-w-[1280px] mx-auto" style={{ padding: 'clamp(1rem, 3vw, 2rem) clamp(1.5rem, 5vw, 4rem) 0' }}>
+      {/* Breadcrumbs + the explicit way back */}
+      <div
+        className="max-w-[1280px] mx-auto flex flex-wrap items-center justify-between gap-4"
+        style={{ padding: 'clamp(1rem, 3vw, 2rem) clamp(1.5rem, 5vw, 4rem) 0' }}
+      >
+        <Breadcrumbs trail={[{ label: t('nav.register') }]} />
         <Link
           to="/"
           className="inline-flex items-center gap-2 font-inter text-[0.875rem] font-medium uppercase tracking-[0.04em] text-[#C9A84C] transition-all duration-300 hover:opacity-80"
@@ -102,9 +108,18 @@ export default function RegistrationPage() {
             </p>
           </div>
 
-          {/* Form Card */}
+          {/* Form Card
+              `key={search}` remounts the form when the query string
+              changes. The form reads its pre-selection from the URL once,
+              on mount — deliberately, so a parent's own edits are not
+              undone on the next render. But this route can be navigated to
+              from itself (the header's Register link while already here,
+              or a different age group's button), and without a remount the
+              new link's parameters would be ignored and the previous
+              selection would silently stick. Typing does not change
+              `search`, so nothing a visitor fills in is ever discarded. */}
           <div className="form-card-wrapper">
-            <RegistrationForm />
+            <RegistrationForm key={search} />
           </div>
         </div>
       </section>

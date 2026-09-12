@@ -594,21 +594,21 @@ function renderCalendar() {
           field('Days', squad.days, (v) => (squad.days = v)),
           field('الأيام (Arabic)', squad.daysAr, (v) => (squad.daysAr = v), { rtl: true }),
         ]),
+        /* "Time" is the daily slot; "Duration" is how long ONE training
+           lasts; "Training days per week" is how often. They used to all
+           be called some flavour of "session", which is what confused
+           parents on the website. Keep these labels as they are. */
         el('div', { className: 'pair' }, [
-          field('Winter time', squad.winterTime, (v) => (squad.winterTime = v)),
-          field('التوقيت الشتوي', squad.winterTimeAr, (v) => (squad.winterTimeAr = v), { rtl: true }),
+          field('Time', squad.time, (v) => (squad.time = v)),
+          field('الموعد (Arabic)', squad.timeAr, (v) => (squad.timeAr = v), { rtl: true }),
         ]),
         el('div', { className: 'pair' }, [
-          field('Summer time', squad.summerTime, (v) => (squad.summerTime = v)),
-          field('التوقيت الصيفي', squad.summerTimeAr, (v) => (squad.summerTimeAr = v), { rtl: true }),
-        ]),
-        el('div', { className: 'pair' }, [
-          field('Session length', squad.duration, (v) => (squad.duration = v)),
+          field('Duration (one training)', squad.duration, (v) => (squad.duration = v)),
           field('المدة (Arabic)', squad.durationAr, (v) => (squad.durationAr = v), { rtl: true }),
         ]),
         el('div', { className: 'pair' }, [
-          field('Sessions', squad.sessions, (v) => (squad.sessions = v)),
-          field('الحصص (Arabic)', squad.sessionsAr, (v) => (squad.sessionsAr = v), { rtl: true }),
+          field('Training days per week', squad.frequency, (v) => (squad.frequency = v)),
+          field('أيام التدريب أسبوعيًا', squad.frequencyAr, (v) => (squad.frequencyAr = v), { rtl: true }),
         ]),
       ]),
     ]);
@@ -630,8 +630,15 @@ function renderCalendar() {
             field('الفصل (Arabic)', term.termAr, (v) => (term.termAr = v), { rtl: true }),
           ]),
           el('div', { className: 'pair' }, [
-            field('Duration', term.duration, (v) => (term.duration = v)),
+            field('Length', term.duration, (v) => (term.duration = v)),
             field('المدة (Arabic)', term.durationAr, (v) => (term.durationAr = v), { rtl: true }),
+          ]),
+          /* The dates are the ONLY part of a term that changes year to
+             year — the label stays "Term 1" forever. This is the field
+             to edit each August. */
+          el('div', { className: 'pair' }, [
+            field('Dates', term.dates, (v) => (term.dates = v)),
+            field('التواريخ (Arabic)', term.datesAr, (v) => (term.datesAr = v), { rtl: true }),
           ]),
         ]),
       ])

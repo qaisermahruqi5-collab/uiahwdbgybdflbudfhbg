@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import { Link } from 'react-router-dom';
+import { registerLink } from '@/lib/registerLink';
 import { useLanguage } from '@/i18n/useLanguage';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -67,7 +68,7 @@ export default function CtaBandSection() {
           >
             {t('cta.text')}
           </p>
-          <Link to="/join" className="btn-primary">
+          <Link to={registerLink()} className="btn-primary">
             {t('cta.button')}
           </Link>
         </div>

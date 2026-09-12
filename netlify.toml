@@ -27,12 +27,21 @@
 #                spacing through React inline styles.
 #   img-src      data: is required by the grain overlay (inline SVG).
 #   connect-src  api.web3forms.com is where the registration form posts.
+#   frame-src    www.google.com is the Location section's embedded map
+#                (src/sections/LocationSection.tsx). Without this the
+#                iframe is blocked in SILENCE — an empty frame on the
+#                page and a "Refused to frame" line in the console, no
+#                error a visitor or the owner would notice. Remove the
+#                map and you can remove this directive.
+#
+#   frame-ancestors 'none' is unrelated and stays: it stops OTHER sites
+#                from framing us, while frame-src governs what we frame.
 # ═══════════════════════════════════════════════════════════════════
 
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-GOn7RAISmFEdGjGzeQxc9F3JeQXQBShsSfoUN0GaKS0='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; font-src 'self'; connect-src 'self' https://api.web3forms.com; manifest-src 'self'; worker-src 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'sha256-QGoEMWLGjBSvIEq6NKde3D1e2ReIavKcc5+6mJp9RE8='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; font-src 'self'; connect-src 'self' https://api.web3forms.com; frame-src https://www.google.com; manifest-src 'self'; worker-src 'none'; upgrade-insecure-requests"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"

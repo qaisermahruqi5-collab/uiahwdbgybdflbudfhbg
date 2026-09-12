@@ -10,8 +10,13 @@ import { useLanguage } from '@/i18n/useLanguage';
 import { useContent } from '@/i18n/useContent';
 import CoachesSection from '@/sections/CoachesSection';
 import GallerySection from '@/sections/GallerySection';
+import PathwaySection from '@/sections/PathwaySection';
+import LocationSection from '@/sections/LocationSection';
+import Breadcrumbs from '@/components/Breadcrumbs';
+import RegisterCta from '@/components/RegisterCta';
 import SectionHeader from '@/components/design/SectionHeader';
 import Stat from '@/components/design/Stat';
+import { registerLink } from '@/lib/registerLink';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -65,8 +70,15 @@ export default function AboutPage() {
     /* pt-24 clears the fixed navbar — it must live here, not on the section
        below, whose inline `padding` shorthand would override a padding class. */
     <div ref={containerRef} className="pt-24">
+      <div
+        className="mx-auto max-w-[1280px]"
+        style={{ padding: 'clamp(1rem, 3vw, 2rem) clamp(1.5rem, 5vw, 4rem) 0' }}
+      >
+        <Breadcrumbs trail={[{ label: t('nav.about') }]} />
+      </div>
+
       {/* Section Divider */}
-      <div className="w-full h-[1px]" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.4) 50%, transparent 100%)' }} />
+      <div className="w-full h-[1px] mt-6" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.4) 50%, transparent 100%)' }} />
 
       {/* ═══════════════════ ABOUT SECTION ═══════════════════ */}
       <section
@@ -131,11 +143,22 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ═══════════════════ COACHES SECTION ═══════════════════ */}
-      <CoachesSection />
+      {/* ═══════════════════ PATHWAY (#pathway) ═══════════════════
+          Ends cleanly. The next section is the gallery, NOT the
+          coaches — the pathway is the player's journey, and putting
+          staff under it was the thing the brief called out. */}
+      <PathwaySection index="02" />
 
       {/* ═══════════════════ GALLERY (photos + videos) ═══════════════════ */}
       <GallerySection index="03" />
+
+      {/* ═══════════════════ COACHES (#coaches) ═══════════════════
+          Its own section, its own heading, its own anchor — the nav
+          item points straight here. */}
+      <CoachesSection index="04" />
+
+      {/* ═══════════════════ LOCATION (#location) ═══════════════════ */}
+      <LocationSection index="05" />
 
       {/* ═══════════════════ CLOSING CTA + INSTAGRAM ═══════════════════ */}
       <section
@@ -148,7 +171,7 @@ export default function AboutPage() {
         >
           {/* CTA Button */}
           <div className="closing-animate flex justify-center">
-            <Link to="/join" className="btn-primary px-10 py-4 text-[0.875rem]">
+            <Link to={registerLink()} className="btn-primary px-10 py-4 text-[0.875rem]">
               {t('about.joinCta')}
             </Link>
           </div>
@@ -178,6 +201,9 @@ export default function AboutPage() {
           </div>
         </div>
       </section>
+
+      {/* Register is reachable from the bottom of every page, not just the header. */}
+      <RegisterCta />
     </div>
   );
 }
