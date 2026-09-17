@@ -76,7 +76,7 @@ Open **`src/data/coaches.ts`** and add an entry. Each coach has a name, role, cr
 2. Fill in `photo` with both paths and the pixel size. Portraits are cropped to a 3:4 shape automatically, so any portrait-ish photo works.
 3. Set `status: 'confirmed'`.
 
-Entries left as `status: 'placeholder'` render as an obviously-empty slot labelled "Open position", so an unfinished card can never be mistaken for a real person. Two such slots are in the file now, waiting on names and photos.
+Entries left as `status: 'placeholder'` render as an obviously-empty slot labelled "Open position", so an unfinished card can never be mistaken for a real person. There are none in the file at the moment — add one in **Studio → Coaches** when a position opens, and it starts as an open slot until you switch it to Confirmed.
 
 ### Programme details, days and times
 
@@ -150,7 +150,7 @@ is listed in `OPEN_ITEMS` in `src/data/content.ts` (with its Arabic twin in
 |---|---|---|
 | 1 | **Is there a one-off registration fee?** How much, and is it included in or added to the first payment? The Programme & Pricing Guide does not mention one; the review discussion did. | Programs page, under the fees · FAQ → Fees & payment |
 | 2 | **Are monthly instalments equal or front-loaded?** The published monthly figures are equal per month. A 50% / 25% / 25% split was discussed — confirm before changing anything, because the figures on the site are the guide's. | Programs page, under the fees |
-| 3 | **Coach names and photographs** beyond Ivan Potepan. | Coaches section — two labelled "Open position" cards |
+| 3 | **Coach names and photographs** beyond Ivan Potepan and Yaqoob Al Sawafi. | Not shown on the site — the open-position cards were removed. Add each coach in **Studio → Coaches** |
 | 4 | **Getting here, parking and drop-off** — the practical arrival note for training evenings. | FAQ → Location |
 
 Also worth a decision:
