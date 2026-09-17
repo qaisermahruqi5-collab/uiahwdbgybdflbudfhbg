@@ -6,7 +6,11 @@
       "name": "Ivan Marcelo Potepan",
       "role": "Head Coach",
       "credentials": "UEFA B (Italy) · AFA/CONMEBOL Pro (Argentina)",
-      "languages": ["Italian", "Spanish", "English"],
+      "languages": [
+        "Italian",
+        "Spanish",
+        "English"
+      ],
       "bio": "Ten years inside the youth sector at Club Atlético Rosario Central in Argentina, coaching Under-16 through to Primavera. Players he developed there went on to PSG, Tottenham, Ajax, River Plate and the Argentina national side. Most recently a first-team coach in Italy, with Imolese Calcio in Serie D.",
       "detail": [
         "Under-16, Under-18, Under-20 and Primavera coach, Club Atlético Rosario Central (Argentina, Serie A), 2011–2021.",
@@ -19,7 +23,12 @@
         "Players developed and promoted to first-team professional football include Giovanni Lo Celso (Rosario Central → PSG, Real Betis, Tottenham, Argentina), Gastón Ávila (→ Boca Juniors, Ajax, Argentina), Rodrigo Villagra (→ River Plate, CSKA Moscow, Argentina), Maxi Lovera (→ Olympiacos), Joaquín Pereyra, Facundo Almada and Alan Marinelli."
       ],
       "initials": "IP",
-      "photo": { "webp": "/coach-potepan.webp", "jpg": "/coach-potepan.jpg", "width": 720, "height": 960 },
+      "photo": {
+        "webp": "/coach-potepan.webp",
+        "jpg": "/coach-potepan.jpg",
+        "width": 720,
+        "height": 960
+      },
       "status": "confirmed"
     },
     {
@@ -27,33 +36,14 @@
       "name": "Yaqoob Al Sawafi",
       "role": "Assistant Coach",
       "credentials": "Academy coaching staff",
-      "languages": ["Arabic", "English"],
+      "languages": [
+        "Arabic",
+        "English"
+      ],
       "bio": "Supports every age group on the pitch — session delivery, individual feedback and tracking each player’s development through the term.",
       "detail": [],
       "initials": "YA",
       "status": "confirmed"
-    },
-    {
-      "id": "coach-slot-2",
-      "name": "Coach name to be confirmed",
-      "role": "Age-group coach",
-      "credentials": "Credentials to be confirmed",
-      "languages": [],
-      "bio": "This coach’s name, photograph and credentials are still to be supplied by the academy.",
-      "detail": [],
-      "initials": "—",
-      "status": "placeholder"
-    },
-    {
-      "id": "coach-slot-3",
-      "name": "Coach name to be confirmed",
-      "role": "Goalkeeping coach",
-      "credentials": "Credentials to be confirmed",
-      "languages": [],
-      "bio": "This coach’s name, photograph and credentials are still to be supplied by the academy.",
-      "detail": [],
-      "initials": "—",
-      "status": "placeholder"
     }
   ]
 }
