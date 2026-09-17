@@ -132,7 +132,7 @@ const el = (tag, props = {}, kids = []) => {
   return node;
 };
 
-let data = { news: null, schedule: null };
+let data = { news: null, schedule: null, pricing: null, coaches: null };
 let dirty = false;
 
 function touched() {
@@ -646,6 +646,372 @@ function renderCalendar() {
   }
 }
 
+/* ── Prices ─────────────────────────────────────────────────────────
+   The money. Two things make this panel safe to hand to someone in a
+   hurry:
+
+   1. It shows the CONSEQUENCE of every figure as it is typed — the three
+      terms added up, what the season saves, what a monthly plan really
+      costs. The stakeholder review went wrong precisely because those
+      relationships were invisible.
+   2. It cannot restructure anything. Bands, their age groups and the two
+      frequency rows are fixed by the site; only amounts are editable. The
+      server enforces that again, because a dashboard is not a permission
+      system.                                                           */
+
+const TERM_KEYS = ['term1', 'term2', 'term3'];
+const TERM_LABEL = { term1: 'Term 1', term2: 'Term 2', term3: 'Term 3' };
+const BAND_LABEL = { u6u8: 'Under 6 and Under 8', u10u16: 'Under 10 to Under 16' };
+
+/** Amounts print the way the website prints them, so the two agree on sight. */
+const omr = (n) =>
+  Number.isFinite(Number(n)) && n !== '' ? `OMR ${Math.round(Number(n) * 1000) / 1000}` : '—';
+
+/**
+ * A numeric field. Empty is kept as '' rather than coerced to 0 — a blank
+ * box must not silently become a free place at the academy. problems()
+ * catches it before Publish.
+ */
+function numberField(label, value, onInput, { onAfter } = {}) {
+  const input = el('input', { value: value ?? '', type: 'number' });
+  input.min = '0';
+  input.step = 'any';
+  input.inputMode = 'decimal';
+  input.addEventListener('input', () => {
+    onInput(input.value === '' ? '' : Number(input.value));
+    touched();
+    onAfter?.();
+  });
+  return el('div', { className: 'field' }, [el('label', { textContent: label }), input]);
+}
+
+function renderPricing() {
+  const host = $('#pricing');
+  host.replaceChildren();
+
+  if (!data.pricing) {
+    host.append(el('p', { className: 'empty', textContent:
+      'content/pricing.json is not in this repository yet, so there is nothing to ' +
+      'edit. It appears here as soon as the file is on the main branch.' }));
+    return;
+  }
+
+  const p = data.pricing;
+
+  host.append(
+    el('div', { className: 'card' }, [
+      el('div', { className: 'card-top' }, [
+        el('span', { className: 'card-name', textContent: 'The season' }),
+      ]),
+      el('div', { className: 'card-body' }, [
+        el('div', { className: 'pair' }, [
+          numberField('Full-season discount (%)', p.seasonDiscountPct,
+            (v) => (p.seasonDiscountPct = v)),
+        ]),
+        el('p', { className: 'lede fineprint', textContent:
+          'Recorded for reference. The season prices below are the real figures — ' +
+          'this percentage does not recalculate them.' }),
+      ]),
+    ])
+  );
+
+  for (const term of p.termStructure ?? []) {
+    host.append(
+      el('div', { className: 'card' }, [
+        el('div', { className: 'card-top' }, [
+          el('span', { className: 'card-name', textContent: TERM_LABEL[term.id] ?? term.id }),
+        ]),
+        el('div', { className: 'card-body' }, [
+          el('div', { className: 'pair' }, [
+            numberField('Weeks of training', term.weeks, (v) => (term.weeks = v)),
+            numberField('Monthly instalments', term.instalments, (v) => (term.instalments = v)),
+          ]),
+        ]),
+      ])
+    );
+  }
+
+  for (const band of p.bands ?? []) {
+    const who = (band.programs ?? []).join(', ').toUpperCase();
+
+    for (const row of band.rows ?? []) {
+      const sums = el('div', { className: 'sums' });
+
+      /* Redrawn on every keystroke: these are the relationships that are
+         impossible to hold in your head while typing four figures. */
+      const redraw = () => {
+        const sum = TERM_KEYS.reduce((total, k) => {
+          const n = Number(row[k]?.upfront);
+          return total + (Number.isFinite(n) ? n : 0);
+        }, 0);
+        const season = Number(row.fullSeason);
+        const saving = sum - season;
+
+        const monthly = TERM_KEYS.map((k) => {
+          const structure = (p.termStructure ?? []).find((t) => t.id === k);
+          const each = Number(row[k]?.monthly);
+          const count = Number(structure?.instalments);
+          if (!Number.isFinite(each) || !Number.isFinite(count)) return null;
+          return `${TERM_LABEL[k]} ${omr(each)} × ${count} = ${omr(each * count)}`;
+        }).filter(Boolean);
+
+        sums.replaceChildren(
+          el('span', { className: 'sum-line', textContent:
+            `Three terms add up to ${omr(sum)} · season ${omr(season)}` }),
+          el('span', {
+            // A negative saving means the season is the dearer option, which
+            // the server refuses. Say so here rather than at Publish.
+            className: saving >= 0 ? 'sum-line good' : 'sum-line bad',
+            textContent: saving >= 0
+              ? `Paying for the season up front saves ${omr(saving)}`
+              : `The season costs ${omr(-saving)} MORE than the terms — this will be refused`,
+          }),
+          el('span', { className: 'sum-line dim', textContent:
+            `Paid monthly — ${monthly.join(' · ')}` })
+        );
+      };
+
+      const body = el('div', { className: 'card-body' });
+
+      for (const key of TERM_KEYS) {
+        row[key] ??= { upfront: '', monthly: '' };
+        body.append(
+          el('div', { className: 'pair' }, [
+            numberField(`${TERM_LABEL[key]} — paid up front`, row[key].upfront,
+              (v) => (row[key].upfront = v), { onAfter: redraw }),
+            numberField(`${TERM_LABEL[key]} — one monthly instalment`, row[key].monthly,
+              (v) => (row[key].monthly = v), { onAfter: redraw }),
+          ])
+        );
+      }
+
+      body.append(
+        el('div', { className: 'pair' }, [
+          numberField('Full season, paid up front', row.fullSeason,
+            (v) => (row.fullSeason = v), { onAfter: redraw }),
+        ]),
+        sums
+      );
+
+      redraw();
+
+      host.append(
+        el('div', { className: 'card' }, [
+          el('div', { className: 'card-top' }, [
+            el('span', { className: 'card-name', textContent:
+              `${BAND_LABEL[band.id] ?? band.id} — ${row.frequency} training days a week` }),
+            el('span', { className: 'fold-mark', textContent: who }),
+          ]),
+          body,
+        ])
+      );
+    }
+  }
+}
+
+/* ── Coaches ────────────────────────────────────────────────────────
+   Order here is order on the website. The one thing this panel must
+   never allow is a half-finished entry going out as a real person, so
+   status is an explicit choice and every new entry starts as an open
+   slot. src/data/coaches.ts and the server enforce the same rule.   */
+
+function coachPhotoRow(coach, onDrawn) {
+  const wrap = el('div', { className: 'field' });
+  wrap.append(el('label', { textContent: 'Portrait (optional)' }));
+
+  const shot = el('div', { className: 'shot' });
+  wrap.append(shot);
+
+  const draw = () => {
+    shot.replaceChildren();
+    if (coach.photo?.jpg) shot.append(el('img', { src: coach.photo.jpg, alt: '' }));
+
+    const drop = el('div', { className: 'drop', textContent: coach.photo?.jpg
+      ? 'Drop a new portrait here, or click to replace'
+      : 'Drop a portrait here, or click to choose one' });
+
+    const picker = el('input', { type: 'file', accept: 'image/*', hidden: true });
+    picker.addEventListener('change', () => picker.files?.[0] && take(picker.files[0]));
+    drop.addEventListener('click', () => picker.click());
+    drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('hot'); });
+    drop.addEventListener('dragleave', () => drop.classList.remove('hot'));
+    drop.addEventListener('drop', (e) => {
+      e.preventDefault();
+      drop.classList.remove('hot');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) take(file);
+    });
+
+    shot.append(drop, picker);
+
+    if (coach.photo?.jpg) {
+      shot.append(el('button', {
+        className: 'btn btn-sm btn-danger',
+        textContent: 'Remove',
+        onclick: () => { delete coach.photo; touched(); draw(); onDrawn?.(); },
+      }));
+    }
+  };
+
+  async function take(file) {
+    const passcode = await askPasscode('Uploading a portrait needs the admin passcode.');
+    if (!passcode) return;
+
+    flash('Resizing portrait…');
+    let shrunk;
+    try {
+      // Portraits render at 3:4 and no wider than 720 on the site; a 1600px
+      // file would cost the visitor bandwidth for pixels never shown.
+      shrunk = await shrink(file, 720);
+    } catch (err) {
+      flash(`Could not read that image: ${err.message}`, 'bad');
+      return;
+    }
+
+    flash('Uploading…');
+    let res;
+    try {
+      res = await send('upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passcode, filename: file.name, ...shrunk }),
+      });
+    } catch (err) {
+      flash(err.message, 'bad');
+      return;
+    }
+
+    if (!res.ok) {
+      flash(await reasonFrom(res, 'Upload failed'), 'bad');
+      return;
+    }
+
+    const body = await res.json();
+    const { webp, jpg, width, height } = body.image ?? {};
+    if (!jpg) {
+      flash('The upload came back without a usable file.', 'bad');
+      return;
+    }
+    coach.photo = { ...(webp ? { webp } : {}), jpg, width, height };
+    touched();
+    draw();
+    onDrawn?.();
+    flash('Portrait added. Press Publish to put it on the site.');
+  }
+
+  draw();
+  return wrap;
+}
+
+function renderCoaches() {
+  const host = $('#coaches-list');
+  const empty = $('#no-coaches');
+  host.replaceChildren();
+
+  if (!data.coaches) {
+    empty.hidden = true;
+    host.append(el('p', { className: 'empty', textContent:
+      'content/coaches.json is not in this repository yet, so there is nothing to ' +
+      'edit. It appears here as soon as the file is on the main branch.' }));
+    return;
+  }
+
+  const list = (data.coaches.coaches ??= []);
+  empty.hidden = list.length > 0;
+
+  const move = (from, to) => {
+    if (to < 0 || to >= list.length) return;
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+    touched();
+    renderCoaches();
+  };
+
+  for (const [i, coach] of list.entries()) {
+    const confirmed = coach.status === 'confirmed';
+
+    const status = el('select');
+    status.append(
+      el('option', { value: 'placeholder', textContent: 'Open slot — not a real person yet' }),
+      el('option', { value: 'confirmed', textContent: 'Confirmed — show on the website' })
+    );
+    status.value = confirmed ? 'confirmed' : 'placeholder';
+    status.addEventListener('change', () => {
+      coach.status = status.value === 'confirmed' ? 'confirmed' : 'placeholder';
+      touched();
+      renderCoaches();
+    });
+
+    host.append(
+      el('div', { className: 'card' }, [
+        el('div', { className: 'card-top' }, [
+          el('span', { className: 'card-name', textContent: coach.name || 'Untitled coach' }),
+          el('span', {
+            className: confirmed ? 'fold-mark' : 'fold-mark open-slot',
+            textContent: confirmed ? 'On the site' : 'Open slot',
+          }),
+          el('div', { className: 'card-tools' }, [
+            el('button', { className: 'btn btn-sm btn-quiet', textContent: '↑',
+              title: 'Move up', onclick: () => move(i, i - 1) }),
+            el('button', { className: 'btn btn-sm btn-quiet', textContent: '↓',
+              title: 'Move down', onclick: () => move(i, i + 1) }),
+            el('button', { className: 'btn btn-sm btn-danger', textContent: 'Delete',
+              onclick: () => {
+                if (!confirm(`Remove ${coach.name || 'this coach'} from the website?`)) return;
+                list.splice(i, 1);
+                touched();
+                renderCoaches();
+              } }),
+          ]),
+        ]),
+        el('div', { className: 'card-body' }, [
+          el('div', { className: 'field' }, [el('label', { textContent: 'Status' }), status]),
+          el('div', { className: 'pair' }, [
+            field('Name', coach.name, (v) => {
+              coach.name = v;
+              if (!coach.id?.trim() || autoIds.has(coach)) {
+                coach.id = slug(v);
+                autoIds.add(coach);
+              }
+            }),
+            field('Role', coach.role, (v) => (coach.role = v)),
+          ]),
+          el('div', { className: 'pair' }, [
+            field('Credentials', coach.credentials, (v) => (coach.credentials = v)),
+            field('Initials (shown until a portrait is added)', coach.initials,
+              (v) => (coach.initials = v)),
+          ]),
+          field('Languages, separated by commas', (coach.languages ?? []).join(', '),
+            (v) => (coach.languages = v.split(',').map((x) => x.trim()).filter(Boolean))),
+          field('Short bio — two or three sentences', coach.bio,
+            (v) => (coach.bio = v), { area: true }),
+          field('The longer story, one line per point (shown behind "Read more")',
+            (coach.detail ?? []).join('\n'),
+            (v) => (coach.detail = v.split('\n').map((x) => x.trim()).filter(Boolean)),
+            { area: true }),
+          coachPhotoRow(coach, renderCoaches),
+        ]),
+      ])
+    );
+  }
+}
+
+$('#add-coach').addEventListener('click', () => {
+  if (!data.coaches) return;
+  const list = (data.coaches.coaches ??= []);
+  const fresh = {
+    id: '', name: '', role: '', credentials: '',
+    languages: [], bio: '', detail: [], initials: '—',
+    // New entries start as open slots on purpose. Someone half-filling a
+    // coach and publishing must not put an invented person on the website.
+    status: 'placeholder',
+  };
+  autoIds.add(fresh);
+  list.unshift(fresh);
+  touched();
+  renderCoaches();
+});
+
 /* ── Bot ──────────────────────────────────────────────────────────── */
 
 async function refreshBot() {
@@ -887,6 +1253,10 @@ function askPasscode(why) {
 
 /* ── Publish ──────────────────────────────────────────────────────── */
 
+/* An empty box is NOT zero. Number('') is 0, which would quietly publish a
+   free place at the academy, so blankness is tested before the number is. */
+const blank = (v) => v === '' || v === null || v === undefined || !Number.isFinite(Number(v));
+
 function problems() {
   const found = [];
   for (const [i, post] of (data.news.items ?? []).entries()) {
@@ -895,6 +1265,41 @@ function problems() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(post.date ?? '')) found.push(`"${name}" needs a valid date.`);
     if (!post.excerpt?.trim()) found.push(`"${name}" needs a summary.`);
   }
+
+  for (const term of data.pricing?.termStructure ?? []) {
+    const name = TERM_LABEL[term.id] ?? term.id;
+    if (blank(term.weeks)) found.push(`${name} needs a number of weeks.`);
+    if (blank(term.instalments)) found.push(`${name} needs a number of instalments.`);
+  }
+
+  for (const band of data.pricing?.bands ?? []) {
+    for (const row of band.rows ?? []) {
+      const where = `${BAND_LABEL[band.id] ?? band.id}, ${row.frequency} days a week`;
+
+      for (const key of TERM_KEYS) {
+        if (blank(row[key]?.upfront)) found.push(`${where}: ${TERM_LABEL[key]} up-front price is blank.`);
+        if (blank(row[key]?.monthly)) found.push(`${where}: ${TERM_LABEL[key]} monthly price is blank.`);
+      }
+
+      if (blank(row.fullSeason)) {
+        found.push(`${where}: the full-season price is blank.`);
+        continue; // The comparison below would be meaningless.
+      }
+
+      const sum = TERM_KEYS.reduce((total, k) => total + (blank(row[k]?.upfront) ? 0 : Number(row[k].upfront)), 0);
+      if (Number(row.fullSeason) > sum) {
+        found.push(
+          `${where}: the full season costs more than the three terms added up. ` +
+          `The season price is the discounted one — it must be lower.`
+        );
+      }
+    }
+  }
+
+  for (const [i, coach] of (data.coaches?.coaches ?? []).entries()) {
+    if (!coach?.name?.trim()) found.push(`Coach ${i + 1} needs a name.`);
+  }
+
   return found;
 }
 
@@ -922,6 +1327,8 @@ $('#publish').addEventListener('click', async () => {
         author: 'studio',
         news: data.news,
         schedule: data.schedule,
+        ...(data.pricing ? { pricing: data.pricing } : {}),
+        ...(data.coaches ? { coaches: data.coaches } : {}),
       }),
     });
 
@@ -961,7 +1368,7 @@ for (const tab of document.querySelectorAll('.desk-tab')) {
     for (const other of document.querySelectorAll('.desk-tab')) {
       other.setAttribute('aria-selected', String(other === tab));
     }
-    for (const name of ['news', 'calendar', 'bot']) {
+    for (const name of ['news', 'calendar', 'pricing', 'coaches', 'bot']) {
       $(`#panel-${name}`).hidden = name !== tab.dataset.panel;
     }
     if (tab.dataset.panel === 'bot') {
@@ -1002,11 +1409,18 @@ async function boot() {
   data = {
     news: body.news ?? { items: [] },
     schedule: body.schedule ?? { squads: [], terms: [] },
+    // null, not a default shape: these two are optional server-side, and an
+    // empty {} here would render an editable panel over a file that is not
+    // there, then create it on Publish. The panels say so instead.
+    pricing: body.pricing ?? null,
+    coaches: body.coaches ?? null,
   };
 
   try {
     renderNews();
     renderCalendar();
+    renderPricing();
+    renderCoaches();
   } catch (err) {
     halt(`Loaded your content but could not draw it: ${err.message}`);
     return;

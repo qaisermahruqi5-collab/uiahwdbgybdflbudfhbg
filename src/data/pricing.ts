@@ -24,6 +24,8 @@
 //   frequency = how many training days a week      (2 or 3)
 // ═══════════════════════════════════════════════════════════════════
 
+import pricingData from '../../content/pricing.json';
+
 /** Age bands share a price list; ages do not have individual prices. */
 export type BandId = 'u6u8' | 'u10u16';
 
@@ -41,11 +43,22 @@ export type PaymentOption = 'term' | 'monthly' | 'season';
 
 export const PAYMENT_OPTIONS: readonly PaymentOption[] = ['term', 'monthly', 'season'] as const;
 
-/** Weeks of training in the full academic year (13 + 7 + 13). */
-export const SEASON_WEEKS = 33;
+/* ── Reading content/pricing.json ──────────────────────────────────
+   The JSON is edited by Studio, so it is untrusted input even though it
+   lives in the repo. It is resolved at BUILD time, which is deliberate:
+   a malformed price list fails the build loudly and the previous deploy
+   stays live, rather than reaching a parent as "OMR 0". Studio's own
+   validator rejects bad figures first; this is the backstop.        */
+
+function money(value: unknown, where: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error(`content/pricing.json: ${where} must be a positive number, got ${JSON.stringify(value)}`);
+  }
+  return value;
+}
 
 /** Discount applied to the Full Season price, in percent. */
-export const SEASON_DISCOUNT_PCT = 10;
+export const SEASON_DISCOUNT_PCT = money(pricingData.seasonDiscountPct, 'seasonDiscountPct');
 
 /** Weeks and instalment count per term — the structure, not the money. */
 export interface TermStructure {
@@ -55,11 +68,18 @@ export interface TermStructure {
   instalments: number;
 }
 
-export const TERM_STRUCTURE: readonly TermStructure[] = [
-  { id: 'term1', weeks: 13, instalments: 3 },
-  { id: 'term2', weeks: 7, instalments: 2 },
-  { id: 'term3', weeks: 13, instalments: 3 },
-] as const;
+export const TERM_STRUCTURE: readonly TermStructure[] = TERM_IDS.map(id => {
+  const raw = pricingData.termStructure.find(t => t.id === id);
+  if (!raw) throw new Error(`content/pricing.json: termStructure is missing "${id}"`);
+  return {
+    id,
+    weeks: money(raw.weeks, `${id}.weeks`),
+    instalments: money(raw.instalments, `${id}.instalments`),
+  };
+});
+
+/** Weeks of training in the full academic year — the terms, added up. */
+export const SEASON_WEEKS = TERM_STRUCTURE.reduce((total, t) => total + t.weeks, 0);
 
 export function termStructure(id: TermId): TermStructure {
   return TERM_STRUCTURE.find(t => t.id === id) ?? TERM_STRUCTURE[0];
@@ -89,48 +109,44 @@ export interface PricingBand {
   rows: readonly PricingRow[];
 }
 
-export const PRICING_BANDS: readonly PricingBand[] = [
-  {
-    id: 'u6u8',
-    programs: ['u6', 'u8'],
-    rows: [
-      {
-        frequency: 2,
-        term1: { upfront: 195, monthly: 65 },
-        term2: { upfront: 95, monthly: 59 },
-        term3: { upfront: 195, monthly: 65 },
-        fullSeason: 435,
-      },
-      {
-        frequency: 3,
-        term1: { upfront: 275, monthly: 92 },
-        term2: { upfront: 120, monthly: 75 },
-        term3: { upfront: 275, monthly: 92 },
-        fullSeason: 600,
-      },
-    ],
-  },
-  {
-    id: 'u10u16',
-    programs: ['u10', 'u12', 'u14', 'u16'],
-    rows: [
-      {
-        frequency: 2,
-        term1: { upfront: 200, monthly: 67 },
-        term2: { upfront: 100, monthly: 63 },
-        term3: { upfront: 200, monthly: 67 },
-        fullSeason: 450,
-      },
-      {
-        frequency: 3,
-        term1: { upfront: 280, monthly: 94 },
-        term2: { upfront: 125, monthly: 78 },
-        term3: { upfront: 280, monthly: 94 },
-        fullSeason: 615,
-      },
-    ],
-  },
-] as const;
+const BAND_IDS: readonly BandId[] = ['u6u8', 'u10u16'] as const;
+
+function termPriceOf(raw: unknown, where: string): TermPrice {
+  const t = (raw ?? {}) as Record<string, unknown>;
+  return { upfront: money(t.upfront, `${where}.upfront`), monthly: money(t.monthly, `${where}.monthly`) };
+}
+
+export const PRICING_BANDS: readonly PricingBand[] = BAND_IDS.map(id => {
+  const raw = pricingData.bands.find(b => b.id === id);
+  if (!raw) throw new Error(`content/pricing.json: bands is missing "${id}"`);
+
+  const rows: PricingRow[] = FREQUENCIES.map(frequency => {
+    const r = raw.rows.find(x => x.frequency === frequency);
+    if (!r) throw new Error(`content/pricing.json: ${id} has no row for ${frequency} training days`);
+
+    const row: PricingRow = {
+      frequency,
+      term1: termPriceOf(r.term1, `${id}/${frequency}.term1`),
+      term2: termPriceOf(r.term2, `${id}/${frequency}.term2`),
+      term3: termPriceOf(r.term3, `${id}/${frequency}.term3`),
+      fullSeason: money(r.fullSeason, `${id}/${frequency}.fullSeason`),
+    };
+
+    // The season price is the discounted one. If it ever exceeds the three
+    // terms added up, the discount has been inverted and every "save OMR x"
+    // line on the site would read as a negative.
+    const sum = row.term1.upfront + row.term2.upfront + row.term3.upfront;
+    if (row.fullSeason > sum) {
+      throw new Error(
+        `content/pricing.json: ${id}/${frequency} fullSeason (${row.fullSeason}) ` +
+        `is more than the three terms added up (${sum}) — the season must never cost more`
+      );
+    }
+    return row;
+  });
+
+  return { id, programs: raw.programs, rows };
+});
 
 /* ── Formatting ────────────────────────────────────────────────────
    Currency code BEFORE the number, no decimals unless the source

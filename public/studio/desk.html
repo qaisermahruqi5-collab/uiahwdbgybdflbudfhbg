@@ -18,6 +18,8 @@
       <nav class="desk-tabs" role="tablist" aria-label="Sections">
         <button class="desk-tab" role="tab" aria-selected="true" data-panel="news">News</button>
         <button class="desk-tab" role="tab" aria-selected="false" data-panel="calendar">Calendar</button>
+        <button class="desk-tab" role="tab" aria-selected="false" data-panel="pricing">Prices</button>
+        <button class="desk-tab" role="tab" aria-selected="false" data-panel="coaches">Coaches</button>
         <button class="desk-tab" role="tab" aria-selected="false" data-panel="bot">Status &amp; Bot</button>
       </nav>
 
@@ -59,6 +61,36 @@
 
         <div class="head sub"><h2>Season terms</h2></div>
         <div id="terms" class="stack"></div>
+      </section>
+
+      <!-- Prices -->
+      <section id="panel-pricing" class="panel" hidden>
+        <div class="head"><h2>Prices</h2></div>
+        <p class="lede">
+          Every amount on the website, in OMR. Which age groups share a price
+          list is fixed by the site and cannot be changed here — the figures can.
+          Each row shows what it works out to as you type, so you can see the
+          saving and the monthly total before you publish.
+          <strong>The full season must always cost less</strong> than the three
+          terms added up; a row that breaks that is refused at Publish.
+        </p>
+        <div id="pricing" class="stack"></div>
+      </section>
+
+      <!-- Coaches -->
+      <section id="panel-coaches" class="panel" hidden>
+        <div class="head">
+          <h2>Coaches</h2>
+          <button id="add-coach" class="btn">+ New coach</button>
+        </div>
+        <p class="lede">
+          In this order on the website. A coach marked <strong>Open slot</strong>
+          renders as a visibly empty position, never as a person — leave the two
+          unfilled ones that way until the academy supplies real names and
+          photographs.
+        </p>
+        <div id="coaches-list" class="stack"></div>
+        <p id="no-coaches" class="empty" hidden>No coaches yet. Add one above.</p>
       </section>
 
       <!-- Status & Bot -->

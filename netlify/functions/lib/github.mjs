@@ -285,4 +285,6 @@ export async function lastPublish() {
 
 export const NEWS_PATH = 'content/news.json';
 export const SCHEDULE_PATH = 'content/schedule.json';
+export const PRICING_PATH = 'content/pricing.json';
+export const COACHES_PATH = 'content/coaches.json';
 export const UPLOAD_DIR = 'public/uploads';

@@ -1,0 +1,59 @@
+{
+  "_comment": "Coaching staff. Edited by Studio - safe to edit by hand too. ORDER IS RENDER ORDER. status must be 'confirmed' or 'placeholder'; anything else is treated as 'placeholder', so an entry can never be mistaken for a real person by accident. A 'placeholder' renders as a labelled open slot. Portraits live in public/ and are rendered at a fixed 3:4, cropped to the top.",
+  "coaches": [
+    {
+      "id": "ivan-potepan",
+      "name": "Ivan Marcelo Potepan",
+      "role": "Head Coach",
+      "credentials": "UEFA B (Italy) · AFA/CONMEBOL Pro (Argentina)",
+      "languages": ["Italian", "Spanish", "English"],
+      "bio": "Ten years inside the youth sector at Club Atlético Rosario Central in Argentina, coaching Under-16 through to Primavera. Players he developed there went on to PSG, Tottenham, Ajax, River Plate and the Argentina national side. Most recently a first-team coach in Italy, with Imolese Calcio in Serie D.",
+      "detail": [
+        "Under-16, Under-18, Under-20 and Primavera coach, Club Atlético Rosario Central (Argentina, Serie A), 2011–2021.",
+        "First-team coach, Club Coronel Aguirre.",
+        "First-team coach and league winner, A.C. Dozzese (2022–23).",
+        "First-team coach, Valsanterno Calcio (2023–24) — runners-up, play-off finalists, and the division’s top attack with 74 goals.",
+        "First-team coach, Imolese Calcio, Serie D (2025/26).",
+        "Coach at Milan Camp in Italy and abroad, including St. Moritz, Switzerland.",
+        "Manchester United Nike Cup, England (2014).",
+        "Players developed and promoted to first-team professional football include Giovanni Lo Celso (Rosario Central → PSG, Real Betis, Tottenham, Argentina), Gastón Ávila (→ Boca Juniors, Ajax, Argentina), Rodrigo Villagra (→ River Plate, CSKA Moscow, Argentina), Maxi Lovera (→ Olympiacos), Joaquín Pereyra, Facundo Almada and Alan Marinelli."
+      ],
+      "initials": "IP",
+      "photo": { "webp": "/coach-potepan.webp", "jpg": "/coach-potepan.jpg", "width": 720, "height": 960 },
+      "status": "confirmed"
+    },
+    {
+      "id": "yaqoob-al-sawafi",
+      "name": "Yaqoob Al Sawafi",
+      "role": "Assistant Coach",
+      "credentials": "Academy coaching staff",
+      "languages": ["Arabic", "English"],
+      "bio": "Supports every age group on the pitch — session delivery, individual feedback and tracking each player’s development through the term.",
+      "detail": [],
+      "initials": "YA",
+      "status": "confirmed"
+    },
+    {
+      "id": "coach-slot-2",
+      "name": "Coach name to be confirmed",
+      "role": "Age-group coach",
+      "credentials": "Credentials to be confirmed",
+      "languages": [],
+      "bio": "This coach’s name, photograph and credentials are still to be supplied by the academy.",
+      "detail": [],
+      "initials": "—",
+      "status": "placeholder"
+    },
+    {
+      "id": "coach-slot-3",
+      "name": "Coach name to be confirmed",
+      "role": "Goalkeeping coach",
+      "credentials": "Credentials to be confirmed",
+      "languages": [],
+      "bio": "This coach’s name, photograph and credentials are still to be supplied by the academy.",
+      "detail": [],
+      "initials": "—",
+      "status": "placeholder"
+    }
+  ]
+}

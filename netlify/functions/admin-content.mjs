@@ -1,5 +1,5 @@
-// GET  -> current news + schedule (needs a session)
-// PUT  -> save news and/or schedule (needs a session AND the passcode again)
+// GET  -> current news, schedule, pricing and coaches (needs a session)
+// PUT  -> save any of them (needs a session AND the passcode again)
 //
 // Re-asking for the passcode on every save is deliberate: a walked-away
 // laptop with a live session still cannot publish to the website.
@@ -12,13 +12,33 @@ const GITHUB_ENV = ['GITHUB_REPO', 'GITHUB_TOKEN'];
 function missingGithubConfig() {
   return GITHUB_ENV.filter((name) => !process.env[name]);
 }
-import { readJson, writeJson, diagnoseAccess, explainWriteFailure, NEWS_PATH, SCHEDULE_PATH } from './lib/github.mjs';
+import {
+  readJson, writeJson, diagnoseAccess, explainWriteFailure,
+  NEWS_PATH, SCHEDULE_PATH, PRICING_PATH, COACHES_PATH,
+} from './lib/github.mjs';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_TEXT = 4000;
+const MAX_AMOUNT = 100000;
+const TERM_IDS = ['term1', 'term2', 'term3'];
+const FREQUENCIES = [2, 3];
 
 function str(value, max = MAX_TEXT) {
   return typeof value === 'string' ? value.slice(0, max) : '';
+}
+
+/** A list of non-empty strings, capped in both item length and count. */
+function textList(value, max = MAX_TEXT, limit = 40) {
+  if (!Array.isArray(value)) return [];
+  return value.map(v => str(v, max).trim()).filter(Boolean).slice(0, limit);
+}
+
+/** A money or count figure: finite, not negative, and not absurd. */
+function amount(value, where) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) throw new Error(`${where} must be a number, and cannot be negative`);
+  if (n > MAX_AMOUNT) throw new Error(`${where} looks wrong — ${n} is above the ${MAX_AMOUNT} limit`);
+  return Math.round(n * 1000) / 1000;
 }
 
 /** Reject anything that is not the exact shape the site expects. */
@@ -114,6 +134,115 @@ function sanitiseSchedule(payload, current) {
   return { _comment: payload._comment ?? current?._comment, trainingDays, squads, terms };
 }
 
+/* ── Coaches ───────────────────────────────────────────────────────
+   Mirrors the fail-safe in src/data/coaches.ts: any status that is not
+   exactly 'confirmed' becomes 'placeholder', so a half-filled entry
+   renders as a labelled open slot and never as a real person.      */
+function sanitiseCoaches(payload) {
+  if (!payload || !Array.isArray(payload.coaches)) throw new Error('coaches must have a coaches array');
+  if (payload.coaches.length > 40) throw new Error('too many coaches (max 40)');
+
+  const seen = new Set();
+  const coaches = payload.coaches.map((raw, i) => {
+    const id = str(raw?.id, 80).trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+    if (!id) throw new Error(`coach ${i + 1} has no id`);
+    if (seen.has(id)) throw new Error(`duplicate coach id "${id}"`);
+    seen.add(id);
+    if (!str(raw?.name, 160).trim()) throw new Error(`coach ${i + 1} needs a name`);
+
+    const img = raw?.photo;
+    const photo = img && typeof img === 'object' && str(img.jpg, 300)
+      ? {
+          ...(str(img.webp, 300) ? { webp: str(img.webp, 300) } : {}),
+          jpg: str(img.jpg, 300),
+          width: Number(img.width) || 720,
+          height: Number(img.height) || 960,
+        }
+      : null;
+
+    return {
+      id,
+      name: str(raw?.name, 160),
+      role: str(raw?.role, 160),
+      credentials: str(raw?.credentials, 300),
+      languages: textList(raw?.languages, 60, 12),
+      bio: str(raw?.bio),
+      detail: textList(raw?.detail, MAX_TEXT, 40),
+      initials: str(raw?.initials, 4) || '—',
+      ...(photo ? { photo } : {}),
+      status: raw?.status === 'confirmed' ? 'confirmed' : 'placeholder',
+    };
+  });
+
+  return { _comment: payload._comment ?? undefined, coaches };
+}
+
+/* ── Pricing ───────────────────────────────────────────────────────
+   The money, and the most dangerous thing this endpoint writes.
+
+   Which age groups share a price list is STRUCTURAL and is taken from
+   the file already on disk — Studio edits figures, never the mapping.
+
+   The season/term invariant is enforced here as well as at build time.
+   Both are needed: this one refuses the save with a sentence the editor
+   can act on, while the build-time check in src/data/pricing.ts is the
+   backstop for a file edited by hand.                              */
+function sanitisePricing(payload, current) {
+  if (!payload || !Array.isArray(payload.bands)) throw new Error('pricing must have a bands array');
+
+  const seasonDiscountPct = amount(payload.seasonDiscountPct, 'the season discount');
+  if (seasonDiscountPct > 100) throw new Error('the season discount cannot be more than 100%');
+
+  const termStructure = TERM_IDS.map(id => {
+    const raw = (Array.isArray(payload.termStructure) ? payload.termStructure : []).find(t => t?.id === id);
+    if (!raw) throw new Error(`pricing is missing the structure for ${id}`);
+    const weeks = amount(raw.weeks, `${id} weeks`);
+    const instalments = amount(raw.instalments, `${id} instalments`);
+    if (weeks < 1) throw new Error(`${id} must have at least one week`);
+    if (instalments < 1) throw new Error(`${id} must have at least one instalment`);
+    return { id, weeks, instalments };
+  });
+
+  const bandIds = (current?.bands ?? []).map(b => b.id);
+  const ids = bandIds.length ? bandIds : payload.bands.map(b => str(b?.id, 40));
+
+  const bands = ids.map(id => {
+    const raw = payload.bands.find(b => b?.id === id);
+    if (!raw) throw new Error(`pricing is missing the "${id}" band — bands cannot be added or removed here`);
+
+    const programs = (current?.bands ?? []).find(b => b.id === id)?.programs
+      ?? textList(raw.programs, 20, 20);
+
+    const rows = FREQUENCIES.map(frequency => {
+      const r = (Array.isArray(raw.rows) ? raw.rows : []).find(x => Number(x?.frequency) === frequency);
+      if (!r) throw new Error(`the "${id}" band has no row for ${frequency} training days a week`);
+
+      const row = { frequency };
+      for (const term of TERM_IDS) {
+        const t = r[term] ?? {};
+        row[term] = {
+          upfront: amount(t.upfront, `${id}, ${frequency} days, ${term} paid up front`),
+          monthly: amount(t.monthly, `${id}, ${frequency} days, ${term} monthly`),
+        };
+      }
+      row.fullSeason = amount(r.fullSeason, `${id}, ${frequency} days, full season`);
+
+      const sum = row.term1.upfront + row.term2.upfront + row.term3.upfront;
+      if (row.fullSeason > sum) {
+        throw new Error(
+          `${id}, ${frequency} days a week: the full season (${row.fullSeason}) costs more than the ` +
+          `three terms added up (${sum}). The season price is the discounted one — it must be lower.`
+        );
+      }
+      return row;
+    });
+
+    return { id, programs, rows };
+  });
+
+  return { _comment: payload._comment ?? current?._comment, seasonDiscountPct, termStructure, bands };
+}
+
 export default async function handler(request) {
   const notConfigured = authConfigError();
   if (notConfigured) return notConfigured;
@@ -138,7 +267,12 @@ export default async function handler(request) {
     // Without this the GitHub call rejects unhandled and Netlify returns a bare
     // 500, which tells the person signing in nothing at all.
     try {
-      const [news, schedule] = await Promise.all([readJson(NEWS_PATH), readJson(SCHEDULE_PATH)]);
+      const [news, schedule, pricing, coaches] = await Promise.all([
+        readJson(NEWS_PATH),
+        readJson(SCHEDULE_PATH),
+        readJson(PRICING_PATH),
+        readJson(COACHES_PATH),
+      ]);
       if (!news.data || !schedule.data) {
         // A 404 here is ambiguous: the file may be missing, or the token may
         // simply be unable to see a private repo. Ask GitHub which it is.
@@ -153,7 +287,15 @@ export default async function handler(request) {
           502
         );
       }
-      return json({ news: news.data, newsSha: news.sha, schedule: schedule.data, scheduleSha: schedule.sha });
+      // pricing and coaches are deliberately NOT required. They arrived
+      // after news and schedule, so a dashboard pointed at a repository
+      // that predates them must still load rather than refusing to open.
+      return json({
+        news: news.data, newsSha: news.sha,
+        schedule: schedule.data, scheduleSha: schedule.sha,
+        pricing: pricing.data ?? null, pricingSha: pricing.sha,
+        coaches: coaches.data ?? null, coachesSha: coaches.sha,
+      });
     } catch (err) {
       const detail = String(err.message ?? err);
       const hint = detail.includes(': 401') || detail.includes(': 403')
@@ -206,6 +348,30 @@ export default async function handler(request) {
         message: `Update training schedule via ${who}`,
       });
       written.push('schedule');
+    }
+
+    if (body.pricing) {
+      const current = await readJson(PRICING_PATH);
+      const clean = sanitisePricing(body.pricing, current.data);
+      await writeJson({
+        path: PRICING_PATH,
+        data: clean,
+        sha: current.sha,
+        message: `Update pricing via ${who}`,
+      });
+      written.push('pricing');
+    }
+
+    if (body.coaches) {
+      const current = await readJson(COACHES_PATH);
+      const clean = sanitiseCoaches(body.coaches);
+      await writeJson({
+        path: COACHES_PATH,
+        data: clean,
+        sha: current.sha,
+        message: `Update coaches (${clean.coaches.length}) via ${who}`,
+      });
+      written.push('coaches');
     }
   } catch (err) {
     // A rejected GitHub write and a rejected field both land here. The first
