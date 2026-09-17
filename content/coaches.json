@@ -43,6 +43,12 @@
       "bio": "Supports every age group on the pitch — session delivery, individual feedback and tracking each player’s development through the term.",
       "detail": [],
       "initials": "YA",
+      "photo": {
+        "webp": "/uploads/image-2026-09-18-005030441-47277501.webp",
+        "jpg": "/uploads/image-2026-09-18-005030441-47277501.jpg",
+        "width": 595,
+        "height": 839
+      },
       "status": "confirmed"
     }
   ]
