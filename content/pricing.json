@@ -2,47 +2,103 @@
   "_comment": "EVERY PRICE ON THE SITE. Edited by Studio - safe to edit by hand too. Amounts are NUMBERS in OMR, never display strings, so a price can never be written twice and drift. Figures come from the academy's Programme & Pricing Guide. 'upfront' = the whole term paid at once. 'monthly' = ONE instalment; the term's monthly total is monthly x that term's instalments. 'fullSeason' = all three terms paid up front, already discounted - it is a real price, unlike the sum of the three terms, which is only ever used to work out the saving. TERMINOLOGY: 'frequency' = how many training days a week (2 or 3). Never write 'sessions'.",
   "seasonDiscountPct": 10,
   "termStructure": [
-    { "id": "term1", "weeks": 13, "instalments": 3 },
-    { "id": "term2", "weeks": 7, "instalments": 2 },
-    { "id": "term3", "weeks": 13, "instalments": 3 }
+    {
+      "id": "term1",
+      "weeks": 13,
+      "instalments": 3
+    },
+    {
+      "id": "term2",
+      "weeks": 7,
+      "instalments": 2
+    },
+    {
+      "id": "term3",
+      "weeks": 13,
+      "instalments": 3
+    }
   ],
   "bands": [
     {
       "id": "u6u8",
-      "programs": ["u6", "u8"],
+      "programs": [
+        "u6",
+        "u8"
+      ],
       "rows": [
         {
           "frequency": 2,
-          "term1": { "upfront": 195, "monthly": 65 },
-          "term2": { "upfront": 95, "monthly": 59 },
-          "term3": { "upfront": 195, "monthly": 65 },
+          "term1": {
+            "upfront": 195,
+            "monthly": 65
+          },
+          "term2": {
+            "upfront": 95,
+            "monthly": 59
+          },
+          "term3": {
+            "upfront": 195,
+            "monthly": 65
+          },
           "fullSeason": 435
         },
         {
           "frequency": 3,
-          "term1": { "upfront": 275, "monthly": 92 },
-          "term2": { "upfront": 120, "monthly": 75 },
-          "term3": { "upfront": 275, "monthly": 92 },
+          "term1": {
+            "upfront": 275,
+            "monthly": 92
+          },
+          "term2": {
+            "upfront": 120,
+            "monthly": 75
+          },
+          "term3": {
+            "upfront": 275,
+            "monthly": 92
+          },
           "fullSeason": 600
         }
       ]
     },
     {
       "id": "u10u16",
-      "programs": ["u10", "u12", "u14", "u16"],
+      "programs": [
+        "u10",
+        "u12",
+        "u14",
+        "u16"
+      ],
       "rows": [
         {
           "frequency": 2,
-          "term1": { "upfront": 200, "monthly": 67 },
-          "term2": { "upfront": 100, "monthly": 63 },
-          "term3": { "upfront": 200, "monthly": 67 },
+          "term1": {
+            "upfront": 200,
+            "monthly": 67
+          },
+          "term2": {
+            "upfront": 100,
+            "monthly": 63
+          },
+          "term3": {
+            "upfront": 200,
+            "monthly": 67
+          },
           "fullSeason": 450
         },
         {
           "frequency": 3,
-          "term1": { "upfront": 280, "monthly": 94 },
-          "term2": { "upfront": 125, "monthly": 78 },
-          "term3": { "upfront": 280, "monthly": 94 },
+          "term1": {
+            "upfront": 280,
+            "monthly": 94
+          },
+          "term2": {
+            "upfront": 125,
+            "monthly": 78
+          },
+          "term3": {
+            "upfront": 280,
+            "monthly": 94
+          },
           "fullSeason": 615
         }
       ]
