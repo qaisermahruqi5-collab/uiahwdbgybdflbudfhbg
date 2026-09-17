@@ -20,7 +20,7 @@ import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { ExternalLink, Info, MapPin, Navigation } from 'lucide-react';
+import { ExternalLink, MapPin, Navigation } from 'lucide-react';
 import { useLanguage } from '@/i18n/useLanguage';
 import { useContent } from '@/i18n/useContent';
 import SectionHeader from '@/components/design/SectionHeader';
@@ -174,34 +174,6 @@ export default function LocationSection({ index = '05' }: { index?: string }) {
               {t('location.openInMaps')}
               <ExternalLink size={14} aria-hidden="true" />
             </a>
-
-            {/* Getting here — a marked placeholder until the client writes it,
-                never an invented set of directions. */}
-            <div
-              className="rounded-[2px] p-5"
-              style={{
-                backgroundColor: 'rgba(122, 10, 18, 0.25)',
-                border: '1px solid rgba(201, 168, 76, 0.22)',
-                borderInlineStart: '3px solid #C9A84C',
-              }}
-            >
-              <div className="flex items-start gap-3">
-                <Info size={18} className="mt-[2px] shrink-0 text-[#C9A84C]" aria-hidden="true" />
-                <div>
-                  <h4 className="font-inter text-[0.75rem] font-semibold uppercase tracking-[0.12em] text-[#E0C878]">
-                    {t('location.gettingHereTitle')}
-                    {loc.gettingHerePending && (
-                      <span className="ms-2 font-normal normal-case tracking-normal text-[#8A94A6]">
-                        {t('common.toBeConfirmed')}
-                      </span>
-                    )}
-                  </h4>
-                  <p className="mt-2 font-inter text-[0.875rem] leading-[1.7] text-[#8A94A6]">
-                    {loc.gettingHere}
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Map */}

@@ -111,7 +111,6 @@ const en = {
   'location.plusCodeLabel': 'Plus code',
   'location.coordinatesLabel': 'Coordinates',
   'location.openInMaps': 'OPEN IN GOOGLE MAPS',
-  'location.gettingHereTitle': 'Getting here, parking & drop-off',
   'location.loadMap': 'Show the map',
   'location.mapTitle': 'Map showing {venue}',
 

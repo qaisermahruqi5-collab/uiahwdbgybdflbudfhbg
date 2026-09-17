@@ -137,9 +137,9 @@ Upload **everything inside `dist/`** to your host:
 
 ---
 
-## WAITING ON YOU — five open questions
+## WAITING ON YOU — four open questions
 
-The site is complete and live-able, but five things could not be written
+The site is complete and live-able, but four things could not be written
 because nobody has the answer yet. **None of them has been guessed at.** Each
 one shows on the site as a visibly-marked *"(to be confirmed)"* note, and each
 is listed in `OPEN_ITEMS` in `src/data/content.ts` (with its Arabic twin in
@@ -151,8 +151,7 @@ is listed in `OPEN_ITEMS` in `src/data/content.ts` (with its Arabic twin in
 | 1 | **Is there a one-off registration fee?** How much, and is it included in or added to the first payment? The Programme & Pricing Guide does not mention one; the review discussion did. | Programs page, under the fees · FAQ → Fees & payment |
 | 2 | **Are monthly instalments equal or front-loaded?** The published monthly figures are equal per month. A 50% / 25% / 25% split was discussed — confirm before changing anything, because the figures on the site are the guide's. | Programs page, under the fees |
 | 3 | **Coach names and photographs** beyond Ivan Potepan. | Coaches section — two labelled "Open position" cards |
-| 4 | **Getting here, parking and drop-off** — the practical arrival note for training evenings. | Location section · FAQ → Location |
-| 5 | **Is the kit cost included in the fee?** The guide says official Genoa training kit is provided; confirm it is inside the term fee and the site will say so plainly. | FAQ → Fees & payment |
+| 4 | **Getting here, parking and drop-off** — the practical arrival note for training evenings. | FAQ → Location |
 
 Also worth a decision:
 

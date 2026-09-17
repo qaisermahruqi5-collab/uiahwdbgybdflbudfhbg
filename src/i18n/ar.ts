@@ -113,7 +113,6 @@ const ar: Record<DictKey, string> = {
   'location.plusCodeLabel': 'رمز Plus Code',
   'location.coordinatesLabel': 'الإحداثيات',
   'location.openInMaps': 'الفتح في خرائط جوجل',
-  'location.gettingHereTitle': 'الوصول والمواقف وإنزال اللاعبين',
   'location.loadMap': 'إظهار الخريطة',
   'location.mapTitle': 'خريطة توضح {venue}',
 

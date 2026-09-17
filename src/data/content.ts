@@ -159,10 +159,12 @@ export interface SiteLocation {
   mapsUrl: string;
   /** Keyless Google Maps embed. Needs frame-src in the CSP — see netlify.toml. */
   embedUrl: string;
-  /** TODO(OWNER): the client's own words on arriving, parking and drop-off. */
+  /**
+   * TODO(OWNER): the client's own words on arriving, parking and drop-off.
+   * No longer shown as a panel in the Location section — it now surfaces
+   * only through the FAQ and the open-questions list.
+   */
   gettingHere: string;
-  /** True while `gettingHere` is still a placeholder, so the UI can label it. */
-  gettingHerePending: boolean;
 }
 
 export const LOCATION: SiteLocation = {
@@ -175,7 +177,6 @@ export const LOCATION: SiteLocation = {
   embedUrl: 'https://www.google.com/maps?q=HCMW%2BQCM%20Muscat&output=embed',
   gettingHere:
     'Directions, parking and the drop-off arrangement for training evenings are still to be confirmed by the academy.',
-  gettingHerePending: true, // TODO(OWNER): replace with the real arrival note
 };
 
 /* ── Programs ──────────────────────────────────────────────────────
@@ -342,7 +343,7 @@ export const INCLUDED: string[] = [
   'Train the Genoa way — UEFA-licensed coaches using Genoa CFC’s official youth-development methods, adapted for every age group.',
   'Clear, structured progress — training designed to improve technique, fitness and understanding of the game.',
   'Confidence on and off the pitch — teamwork, discipline, communication and self-belief.',
-  'Official Genoa training kit — every player feels part of the academy from day one.',
+  'Official Genoa training kit — every player feels part of the academy from day one. Paid for separately from the term fee.',
   'Nutrition and hydration guidance — simple, age-appropriate advice.',
   'Extra development opportunities — optional fitness sessions for players who want to push further.',
   'Termly player assessments — clear coach feedback on progress, strengths and areas to improve.',
@@ -583,8 +584,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         id: 'faq-kit-included',
         q: 'Is the kit included?',
-        a: 'Every registered player receives the official Genoa training kit. Whether its cost sits inside the term fee or is invoiced separately is still to be confirmed by the academy.',
-        pending: true,
+        a: 'Yes. Every registered player receives the official Genoa training kit. Its cost is not part of the term fee — the kit is paid for separately.',
       },
       {
         id: 'faq-refunds',
@@ -617,7 +617,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
       {
         id: 'faq-kit-provided',
         q: 'Do you provide the kit?',
-        a: 'Yes — every registered player receives the official Genoa training kit, so they look part of the academy from their first training.',
+        a: 'Yes — every registered player receives the official Genoa training kit, so they look part of the academy from their first training. It is paid for separately from the term fee.',
       },
     ],
   },
