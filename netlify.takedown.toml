@@ -1,0 +1,20 @@
+# ═══════════════════════════════════════════════════════════════════
+# TEMPORARY TAKEDOWN CONFIG — NOT COMMITTED.
+# Publishes a directory containing only a 404 page, so every path on
+# the domain returns a genuine HTTP 404. The real site is untouched:
+# the previous production deploy stays in Netlify's deploy list and
+# republishing it restores the site instantly.
+# ═══════════════════════════════════════════════════════════════════
+
+[build]
+  command = "echo offline"
+  publish = "takedown"
+
+# no-store everywhere: nothing caches the 404, so the restore is instant.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "no-store"
+    X-Robots-Tag = "noindex, nofollow, noarchive"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
